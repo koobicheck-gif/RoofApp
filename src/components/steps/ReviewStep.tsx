@@ -3,6 +3,7 @@ import { Card, CardHeader, Button, TextArea } from '../ui';
 import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calculateEstimate';
+import { generateEstimatePdf, downloadPdf } from '../../utils/generatePdf';
 import { SHINGLE_TYPE_NAMES } from '../../data/defaultPricing';
 
 export function ReviewStep() {
@@ -10,6 +11,7 @@ export function ReviewStep() {
   const estimate = useCurrentEstimate();
   const { state: pricingState } = usePricing();
   const [viewMode, setViewMode] = useState<'detailed' | 'customer'>('detailed');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const calculation = useMemo(() => {
     if (!estimate) return null;
@@ -43,6 +45,58 @@ export function ReviewStep() {
 
   const saveEstimate = () => {
     dispatch({ type: 'SAVE_ESTIMATE' });
+  };
+
+  const handleDownloadPdf = async (showDetailed: boolean) => {
+    setIsGeneratingPdf(true);
+    try {
+      const doc = await generateEstimatePdf({
+        estimate,
+        calculation,
+        companyInfo: pricingState.companyInfo,
+        showDetailedPricing: showDetailed,
+      });
+      const filename = `Estimate-${estimate.estimateNumber}-${estimate.customer.name || 'Customer'}.pdf`;
+      downloadPdf(doc, filename.replace(/[^a-zA-Z0-9-_\.]/g, '_'));
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleSharePdf = async () => {
+    if (!navigator.share) {
+      alert('Sharing is not supported on this device. Use the download button instead.');
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const doc = await generateEstimatePdf({
+        estimate,
+        calculation,
+        companyInfo: pricingState.companyInfo,
+        showDetailedPricing: false,
+      });
+      const blob = doc.output('blob');
+      const filename = `Estimate-${estimate.estimateNumber}.pdf`;
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      await navigator.share({
+        title: `Roof Repair Estimate ${estimate.estimateNumber}`,
+        text: `Estimate for ${estimate.customer.name || 'Customer'} - ${formatCurrency(calculation.grandTotal)}`,
+        files: [file],
+      });
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Failed to share PDF:', error);
+        alert('Failed to share. Try downloading instead.');
+      }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -312,6 +366,52 @@ export function ReviewStep() {
             </p>
           </div>
         </div>
+      </Card>
+
+      {/* PDF Actions */}
+      <Card>
+        <CardHeader
+          title="Generate PDF"
+          subtitle="Download or share the estimate as a PDF"
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            onClick={() => handleDownloadPdf(false)}
+            disabled={isGeneratingPdf}
+            fullWidth
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            {isGeneratingPdf ? 'Generating...' : 'Customer PDF'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleDownloadPdf(true)}
+            disabled={isGeneratingPdf}
+            fullWidth
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            {isGeneratingPdf ? 'Generating...' : 'Detailed PDF'}
+          </Button>
+        </div>
+        {'share' in navigator && (
+          <Button
+            variant="secondary"
+            onClick={handleSharePdf}
+            disabled={isGeneratingPdf}
+            fullWidth
+            className="mt-3"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            Share PDF
+          </Button>
+        )}
       </Card>
 
       {/* Tech Notes */}
