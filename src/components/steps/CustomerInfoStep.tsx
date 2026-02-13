@@ -1,6 +1,7 @@
 import { Input, CardSelect, Card, CardHeader } from '../ui';
 import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
 import { SHINGLE_TYPE_NAMES } from '../../data/defaultPricing';
+import { PropertyHistoryPanel } from '../PropertyHistoryPanel';
 import type { ShingleType, Customer } from '../../types';
 
 const SHINGLE_OPTIONS = [
@@ -62,6 +63,16 @@ export function CustomerInfoStep() {
             placeholder="123 Oak Street"
             autoComplete="street-address"
           />
+
+          {/* Property History Panel */}
+          {estimate.customer.address.length >= 3 && (
+            <PropertyHistoryPanel
+              address={estimate.customer.address}
+              city={estimate.customer.city}
+              state={estimate.customer.state}
+              currentEstimateId={estimate.id}
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="col-span-2 sm:col-span-2">

@@ -4,3 +4,9 @@ export { Select, CardSelect } from './Select';
 export { Card, CardHeader } from './Card';
 export { NumberInput, InlineNumberInput } from './NumberInput';
 export { Toggle, Checkbox } from './Toggle';
+
+// Field Mode Components
+export { StickyTotalBar } from './StickyTotalBar';
+export { QuickIncrementButtons } from './QuickIncrementButtons';
+export { FieldModeToggle } from './FieldModeToggle';
+export { QuickTagChips, CompactTag } from './QuickTagChips';

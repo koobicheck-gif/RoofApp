@@ -16,20 +16,38 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles =
-    'font-semibold rounded-lg transition-all duration-200 touch-target flex items-center justify-center gap-2';
+  const baseStyles = `
+    font-semibold rounded-xl transition-all duration-200
+    touch-target flex items-center justify-center gap-2
+    active:scale-[0.98] shadow-sm hover:shadow-md
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+  `;
 
   const variantStyles = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300',
-    secondary: 'bg-gray-600 text-white hover:bg-gray-700 active:bg-gray-800 disabled:bg-gray-300',
-    outline:
-      'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 active:bg-blue-100 disabled:border-gray-300 disabled:text-gray-300',
-    danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-red-300',
+    primary: `
+      bg-gradient-to-b from-blue-500 to-blue-600 text-white
+      hover:from-blue-600 hover:to-blue-700
+      shadow-blue-500/25 hover:shadow-blue-500/40
+    `,
+    secondary: `
+      bg-gradient-to-b from-gray-500 to-gray-600 text-white
+      hover:from-gray-600 hover:to-gray-700
+    `,
+    outline: `
+      border-2 border-blue-500 text-blue-600 bg-white
+      hover:bg-blue-50 hover:border-blue-600
+      shadow-none hover:shadow-sm
+    `,
+    danger: `
+      bg-gradient-to-b from-red-500 to-red-600 text-white
+      hover:from-red-600 hover:to-red-700
+      shadow-red-500/25 hover:shadow-red-500/40
+    `,
   };
 
   const sizeStyles = {
-    sm: 'px-3 py-2 text-sm min-h-[40px]',
-    md: 'px-4 py-3 text-base min-h-[48px]',
+    sm: 'px-4 py-2 text-sm min-h-[40px]',
+    md: 'px-5 py-3 text-base min-h-[48px]',
     lg: 'px-6 py-4 text-lg min-h-[56px]',
   };
 
