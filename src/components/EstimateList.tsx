@@ -4,7 +4,10 @@ import { useAllEstimates, useEstimate } from '../context/EstimateContext';
 import { usePricing } from '../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../utils/calculateEstimate';
 import { SHINGLE_TYPE_NAMES } from '../data/defaultPricing';
+import { EstimatesMap } from './EstimatesMap';
 import type { Estimate } from '../types';
+
+const LOGO_URL = '/RoofApp/logo.png';
 
 interface EstimateListProps {
   onSelectEstimate: (id: string) => void;
@@ -73,13 +76,24 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-[#00224a] text-white">
-        <div className="max-w-3xl mx-auto px-4 py-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Roof Repair Partners</h1>
-              <p className="text-white/70 text-sm mt-1">
-                Oklahoma's Only Repair-Focused Roofing Company
-              </p>
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src={LOGO_URL}
+                alt="Roof Repair Partners"
+                className="h-14 w-auto"
+                onError={(e) => {
+                  // Hide image if it fails to load
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <div>
+                <h1 className="text-xl font-bold">Roof Repair Partners</h1>
+                <p className="text-white/70 text-xs">
+                  Oklahoma's Only Repair-Focused Roofing Company
+                </p>
+              </div>
             </div>
             <div className="flex gap-1">
               {onOpenJobs && (
@@ -115,6 +129,11 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
         {/* Offline Indicator */}
         <div className="mb-4">
           <OfflineIndicator />
+        </div>
+
+        {/* Estimates Map */}
+        <div className="mb-6">
+          <EstimatesMap onSelectEstimate={onSelectEstimate} />
         </div>
 
         {/* New Estimate Button */}
