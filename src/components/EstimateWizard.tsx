@@ -133,9 +133,9 @@ export function EstimateWizard({ onComplete, onCancel }: EstimateWizardProps) {
                   flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors
                   ${
                     index === currentStep
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#00224a] text-white'
                       : index < currentStep
-                        ? 'bg-blue-100 text-blue-600'
+                        ? 'bg-[#00224a]/20 text-[#00224a]'
                         : 'bg-gray-100 text-gray-400'
                   }
                 `}

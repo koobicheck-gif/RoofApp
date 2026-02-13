@@ -14,7 +14,7 @@ export function StickyTotalBar({
   onViewDetails,
 }: StickyTotalBarProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-2xl border-t border-blue-500">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#00224a] to-[#001a3a] text-white shadow-2xl border-t border-[#00224a]/50">
       <div className="max-w-3xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -22,7 +22,7 @@ export function StickyTotalBar({
               <span className="text-lg font-bold">{itemCount}</span>
             </div>
             <div>
-              <div className="text-xs text-blue-200 uppercase tracking-wide">{label}</div>
+              <div className="text-xs text-white/70 uppercase tracking-wide">{label}</div>
               <div className="text-2xl font-bold tracking-tight">
                 {formatCurrency(total)}
               </div>

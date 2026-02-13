@@ -164,11 +164,11 @@ export function SettingsManager() {
           subtitle="How your company info will appear on estimates"
         />
 
-        <div className="bg-blue-700 text-white p-4 rounded-lg">
+        <div className="bg-[#00224a] text-white p-4 rounded-lg">
           <div className="flex justify-between items-start">
             <div>
               <div className="text-xl font-bold">{companyInfo.name}</div>
-              <div className="text-sm text-blue-200">{companyInfo.tagline}</div>
+              <div className="text-sm text-white/70">{companyInfo.tagline}</div>
             </div>
             <div className="text-right text-sm">
               <div>{companyInfo.phone}</div>

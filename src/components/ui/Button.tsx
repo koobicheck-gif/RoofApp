@@ -25,17 +25,17 @@ export function Button({
 
   const variantStyles = {
     primary: `
-      bg-gradient-to-b from-blue-500 to-blue-600 text-white
-      hover:from-blue-600 hover:to-blue-700
-      shadow-blue-500/25 hover:shadow-blue-500/40
+      bg-gradient-to-b from-[#00224a] to-[#001a3a] text-white
+      hover:from-[#002d5c] hover:to-[#00224a]
+      shadow-[#00224a]/25 hover:shadow-[#00224a]/40
     `,
     secondary: `
       bg-gradient-to-b from-gray-500 to-gray-600 text-white
       hover:from-gray-600 hover:to-gray-700
     `,
     outline: `
-      border-2 border-blue-500 text-blue-600 bg-white
-      hover:bg-blue-50 hover:border-blue-600
+      border-2 border-[#00224a] text-[#00224a] bg-white
+      hover:bg-[#00224a]/5 hover:border-[#002d5c]
       shadow-none hover:shadow-sm
     `,
     danger: `

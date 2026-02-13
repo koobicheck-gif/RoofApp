@@ -72,12 +72,12 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-blue-700 text-white">
+      <header className="bg-[#00224a] text-white">
         <div className="max-w-3xl mx-auto px-4 py-6">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold">Roof Repair Partners</h1>
-              <p className="text-blue-200 text-sm mt-1">
+              <p className="text-white/70 text-sm mt-1">
                 Oklahoma's Only Repair-Focused Roofing Company
               </p>
             </div>
@@ -85,7 +85,7 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
               {onOpenJobs && (
                 <button
                   onClick={onOpenJobs}
-                  className="p-2 hover:bg-blue-600 rounded-lg transition-colors"
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                   title="Jobs & Scheduling"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,7 +96,7 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
               {onOpenAdmin && (
                 <button
                   onClick={onOpenAdmin}
-                  className="p-2 hover:bg-blue-600 rounded-lg transition-colors"
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                   title="Admin Dashboard"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

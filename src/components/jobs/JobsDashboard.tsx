@@ -147,11 +147,11 @@ export function JobsDashboard({ onClose }: JobsDashboardProps) {
   if (viewMode === 'calendar') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header className="bg-purple-700 text-white">
+        <header className="bg-[#00224a] text-white">
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <button onClick={onClose} className="p-2 hover:bg-purple-600 rounded-lg">
+                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
@@ -179,11 +179,11 @@ export function JobsDashboard({ onClose }: JobsDashboardProps) {
   if (viewMode === 'crew') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header className="bg-purple-700 text-white">
+        <header className="bg-[#00224a] text-white">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <button onClick={onClose} className="p-2 hover:bg-purple-600 rounded-lg">
+                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
@@ -211,11 +211,11 @@ export function JobsDashboard({ onClose }: JobsDashboardProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-purple-700 text-white">
+      <header className="bg-[#00224a] text-white">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={onClose} className="p-2 hover:bg-purple-600 rounded-lg">
+              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>

@@ -130,10 +130,10 @@ export function ReviewStep() {
       {/* Estimate Preview */}
       <Card className="overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-700 text-white p-6 -m-4 mb-4">
+        <div className="bg-[#00224a] text-white p-6 -m-4 mb-4">
           <div className="text-center">
             <h1 className="text-2xl font-bold">{pricingState.companyInfo.name}</h1>
-            <p className="text-blue-200 mt-1">{pricingState.companyInfo.tagline}</p>
+            <p className="text-white/70 mt-1">{pricingState.companyInfo.tagline}</p>
           </div>
         </div>
 

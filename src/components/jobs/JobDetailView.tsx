@@ -146,17 +146,17 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-purple-700 text-white">
+      <header className="bg-[#00224a] text-white">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 hover:bg-purple-600 rounded-lg">
+            <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div>
               <h1 className="text-xl font-bold">{job.customer.name}</h1>
-              <p className="text-purple-200 text-sm">{job.estimateNumber}</p>
+              <p className="text-white/70 text-sm">{job.estimateNumber}</p>
             </div>
           </div>
         </div>
