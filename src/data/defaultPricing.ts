@@ -254,7 +254,10 @@ export const DEFAULT_COMPANY_INFO: CompanyInfo = {
   email: 'info@roofrepairpartners.com',
   website: 'roofrepairpartners.com',
   address: 'Oklahoma City, OK',
-  licenseNumber: '',
+  city: 'Oklahoma City',
+  state: 'OK',
+  zip: '73102',
+  license: '',
 };
 
 // Layer depth display names

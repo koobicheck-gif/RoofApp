@@ -3,8 +3,9 @@ import { PricingProvider } from './context/PricingContext';
 import { EstimateProvider, useEstimate } from './context/EstimateContext';
 import { EstimateList } from './components/EstimateList';
 import { EstimateWizard } from './components/EstimateWizard';
+import { AdminDashboard } from './components/admin';
 
-type View = 'list' | 'wizard';
+type View = 'list' | 'wizard' | 'admin';
 
 function AppContent() {
   const [view, setView] = useState<View>('list');
@@ -28,6 +29,18 @@ function AppContent() {
     setView('list');
   };
 
+  const handleOpenAdmin = () => {
+    setView('admin');
+  };
+
+  const handleCloseAdmin = () => {
+    setView('list');
+  };
+
+  if (view === 'admin') {
+    return <AdminDashboard onClose={handleCloseAdmin} />;
+  }
+
   if (view === 'wizard') {
     return (
       <EstimateWizard
@@ -41,6 +54,7 @@ function AppContent() {
     <EstimateList
       onNewEstimate={handleNewEstimate}
       onSelectEstimate={handleSelectEstimate}
+      onOpenAdmin={handleOpenAdmin}
     />
   );
 }

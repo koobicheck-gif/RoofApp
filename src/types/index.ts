@@ -199,6 +199,9 @@ export interface CompanyInfo {
   phone: string;
   email: string;
   website: string;
-  address: string;
-  licenseNumber: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  license?: string;
 }
