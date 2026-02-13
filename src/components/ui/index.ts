@@ -10,3 +10,6 @@ export { StickyTotalBar } from './StickyTotalBar';
 export { QuickIncrementButtons } from './QuickIncrementButtons';
 export { FieldModeToggle } from './FieldModeToggle';
 export { QuickTagChips, CompactTag } from './QuickTagChips';
+
+// Offline Components
+export { OfflineIndicator } from './OfflineIndicator';

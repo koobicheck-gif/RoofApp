@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button } from './ui';
+import { Card, Button, OfflineIndicator } from './ui';
 import { useAllEstimates, useEstimate } from '../context/EstimateContext';
 import { usePricing } from '../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../utils/calculateEstimate';
@@ -112,6 +112,11 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
 
       {/* Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
+        {/* Offline Indicator */}
+        <div className="mb-4">
+          <OfflineIndicator />
+        </div>
+
         {/* New Estimate Button */}
         <Button fullWidth size="lg" onClick={onNewEstimate} className="mb-6">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
