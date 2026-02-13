@@ -205,3 +205,54 @@ export interface CompanyInfo {
   zip?: string;
   license?: string;
 }
+
+// Crew member
+export interface CrewMember {
+  id: string;
+  name: string;
+  phone: string;
+  role: 'lead' | 'technician' | 'helper';
+  active: boolean;
+}
+
+// Job schedule
+export interface JobSchedule {
+  scheduledDate: string;
+  scheduledTime: string;
+  estimatedDuration: number; // in hours
+  crewIds: string[];
+}
+
+// Job timeline event
+export interface JobTimelineEvent {
+  id: string;
+  timestamp: Date;
+  type: 'status_change' | 'note' | 'photo' | 'schedule' | 'crew_change';
+  description: string;
+  userId?: string;
+  userName?: string;
+  oldValue?: string;
+  newValue?: string;
+}
+
+// Job completion data
+export interface JobCompletion {
+  completedAt: Date;
+  completedBy: string;
+  completionNotes: string;
+  completionPhotos: EstimatePhoto[];
+  customerSignature?: string;
+  materialsUsed?: string;
+  actualDuration?: number; // in hours
+}
+
+// Extended job/estimate with tracking
+export interface Job extends Estimate {
+  schedule?: JobSchedule;
+  timeline: JobTimelineEvent[];
+  completion?: JobCompletion;
+  invoiceNumber?: string;
+  invoicedAt?: Date;
+  paidAt?: Date;
+  paymentMethod?: 'cash' | 'check' | 'card' | 'financing';
+}

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { PricingProvider } from './context/PricingContext';
 import { EstimateProvider, useEstimate } from './context/EstimateContext';
+import { JobsProvider } from './context/JobsContext';
 import { EstimateList } from './components/EstimateList';
 import { EstimateWizard } from './components/EstimateWizard';
 import { AdminDashboard } from './components/admin';
+import { JobsDashboard } from './components/jobs';
 
-type View = 'list' | 'wizard' | 'admin';
+type View = 'list' | 'wizard' | 'admin' | 'jobs';
 
 function AppContent() {
   const [view, setView] = useState<View>('list');
@@ -37,8 +39,20 @@ function AppContent() {
     setView('list');
   };
 
+  const handleOpenJobs = () => {
+    setView('jobs');
+  };
+
+  const handleCloseJobs = () => {
+    setView('list');
+  };
+
   if (view === 'admin') {
     return <AdminDashboard onClose={handleCloseAdmin} />;
+  }
+
+  if (view === 'jobs') {
+    return <JobsDashboard onClose={handleCloseJobs} />;
   }
 
   if (view === 'wizard') {
@@ -55,6 +69,7 @@ function AppContent() {
       onNewEstimate={handleNewEstimate}
       onSelectEstimate={handleSelectEstimate}
       onOpenAdmin={handleOpenAdmin}
+      onOpenJobs={handleOpenJobs}
     />
   );
 }
@@ -63,7 +78,9 @@ function App() {
   return (
     <PricingProvider>
       <EstimateProvider>
-        <AppContent />
+        <JobsProvider>
+          <AppContent />
+        </JobsProvider>
       </EstimateProvider>
     </PricingProvider>
   );
