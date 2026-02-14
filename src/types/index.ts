@@ -119,8 +119,14 @@ export interface Estimate {
   // Customer info
   customer: Customer;
 
-  // Shingle selection
+  // Roof type (residential vs commercial/flat)
+  roofType: RoofType;
+
+  // Residential shingle selection
   shingleType: ShingleType;
+
+  // Commercial/Flat roof details
+  flatRoofDetails?: FlatRoofDetails;
 
   // Damage assessment
   shingleDamage: ShingleDamage[];
@@ -137,6 +143,11 @@ export interface Estimate {
   isEmergency: boolean;
   isAfterHours: boolean;
   warrantyOptionId: string;
+
+  // Service agreement
+  serviceAgreementId?: string;
+  includeServiceAgreement: boolean;
+  selectedServicePlanId?: string;
 
   // Photos
   photos: EstimatePhoto[];
@@ -308,3 +319,107 @@ export interface PropertyHistory {
     status: Estimate['status'];
   }[];
 }
+
+// ============================================
+// COMMERCIAL ROOFING & SERVICE AGREEMENTS
+// ============================================
+
+// Roof type classification
+export type RoofType = 'residential' | 'commercial';
+
+// Commercial/Flat roof material types
+export type FlatRoofMaterial = 'tpo' | 'epdm' | 'pvc' | 'modified-bitumen' | 'built-up' | 'spray-foam';
+
+// Flat roof pricing structure
+export interface FlatRoofPricing {
+  material: FlatRoofMaterial;
+  name: string;
+  perSquareFoot: {
+    material: number;
+    labor: number;
+  };
+  minimumArea: number; // sq ft
+  warrantyYears: number;
+}
+
+// Commercial repair types
+export interface CommercialRepairType {
+  id: string;
+  name: string;
+  description: string;
+  unit: 'each' | 'linear_ft' | 'sq_ft';
+  material: number;
+  labor: number;
+  active: boolean;
+}
+
+// Service Agreement Types
+export type ServiceAgreementTier = 'basic' | 'standard' | 'premium';
+export type BillingFrequency = 'annual' | 'semi-annual' | 'quarterly' | 'monthly';
+
+// Service agreement plan
+export interface ServiceAgreementPlan {
+  id: string;
+  tier: ServiceAgreementTier;
+  name: string;
+  description: string;
+  annualPrice: number;
+  features: string[];
+  inspectionsPerYear: number;
+  discountPercent: number; // Discount on repairs
+  priorityService: boolean;
+  emergencyResponse: boolean;
+  gutterCleaning: boolean;
+  minorRepairsIncluded: boolean; // Up to a certain $$ amount
+  minorRepairLimit: number; // Max $ covered per visit
+}
+
+// Active service agreement for a customer
+export interface ServiceAgreement {
+  id: string;
+  customerId: string;
+  planId: string;
+  propertyAddress: string;
+  propertyCity: string;
+  propertyState: string;
+  propertyZip: string;
+  roofType: RoofType;
+  roofSize: number; // sq ft
+  startDate: Date;
+  renewalDate: Date;
+  billingFrequency: BillingFrequency;
+  paymentAmount: number; // Per billing period
+  status: 'active' | 'pending' | 'expired' | 'cancelled';
+  inspectionHistory: ServiceInspection[];
+  notes: string;
+}
+
+// Scheduled maintenance inspection
+export interface ServiceInspection {
+  id: string;
+  scheduledDate: Date;
+  completedDate?: Date;
+  techId?: string;
+  techName?: string;
+  status: 'scheduled' | 'completed' | 'missed' | 'rescheduled';
+  findings: string;
+  photos: EstimatePhoto[];
+  repairsNeeded: string[];
+  repairsPerformed: string[];
+  repairsCost: number;
+  coveredByAgreement: boolean;
+}
+
+// Flat roof details for commercial estimates
+export interface FlatRoofDetails {
+  material: FlatRoofMaterial;
+  totalArea: number; // sq ft
+  drainageIssues: boolean;
+  pondingAreas: number; // count
+  seamCondition: 'good' | 'fair' | 'poor';
+  flashingCondition: 'good' | 'fair' | 'poor';
+  membraneCondition: 'good' | 'fair' | 'poor';
+  roofAge: number; // years
+  lastInspectionDate?: Date;
+}
+

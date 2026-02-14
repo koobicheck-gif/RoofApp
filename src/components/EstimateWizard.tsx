@@ -5,6 +5,7 @@ import {
   DamageAssessmentStep,
   AdditionalRepairsStep,
   SiteConditionsStep,
+  ServiceAgreementStep,
   ReviewStep,
 } from './steps';
 import { useEstimate, useCurrentEstimate } from '../context/EstimateContext';
@@ -16,7 +17,8 @@ const STEPS = [
   { id: 'damage', title: 'Damage', shortTitle: '2' },
   { id: 'repairs', title: 'Repairs', shortTitle: '3' },
   { id: 'conditions', title: 'Conditions', shortTitle: '4' },
-  { id: 'review', title: 'Review', shortTitle: '5' },
+  { id: 'service', title: 'Service', shortTitle: '5' },
+  { id: 'review', title: 'Review', shortTitle: '6' },
 ];
 
 interface EstimateWizardProps {
@@ -96,6 +98,8 @@ export function EstimateWizard({ onComplete, onCancel }: EstimateWizardProps) {
       case 3:
         return <SiteConditionsStep />;
       case 4:
+        return <ServiceAgreementStep />;
+      case 5:
         return <ReviewStep />;
       default:
         return null;
@@ -162,7 +166,7 @@ export function EstimateWizard({ onComplete, onCancel }: EstimateWizardProps) {
 
       {/* Running Total Bar */}
       {calculation && calculation.grandTotal > 0 && (
-        <div className="bg-blue-600 text-white px-4 py-2 text-center sticky top-[105px] z-10">
+        <div className="bg-[#00224a] text-white px-4 py-2 text-center sticky top-[105px] z-10">
           <span className="text-sm">Running Total: </span>
           <span className="font-bold">{formatCurrency(calculation.grandTotal)}</span>
         </div>

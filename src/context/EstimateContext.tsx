@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, type ReactNode, type Dispatch } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Estimate, Customer, ShingleType, ShingleDamage, AdditionalRepair, CustomRepair, EstimatePhoto } from '../types';
+import type { Estimate, Customer, ShingleType, ShingleDamage, AdditionalRepair, CustomRepair, EstimatePhoto, RoofType, FlatRoofDetails } from '../types';
 
 // State interface
 interface EstimateState {
@@ -15,7 +15,9 @@ type EstimateAction =
   | { type: 'LOAD_ESTIMATE'; payload: string }
   | { type: 'SET_CURRENT_ESTIMATE'; payload: Estimate }
   | { type: 'UPDATE_CUSTOMER'; payload: Customer }
+  | { type: 'SET_ROOF_TYPE'; payload: RoofType }
   | { type: 'SET_SHINGLE_TYPE'; payload: ShingleType }
+  | { type: 'SET_FLAT_ROOF_DETAILS'; payload: FlatRoofDetails }
   | { type: 'SET_SHINGLE_DAMAGE'; payload: ShingleDamage[] }
   | { type: 'SET_ADDITIONAL_REPAIRS'; payload: AdditionalRepair[] }
   | { type: 'SET_CUSTOM_REPAIRS'; payload: CustomRepair[] }
@@ -24,6 +26,7 @@ type EstimateAction =
   | { type: 'SET_EMERGENCY'; payload: boolean }
   | { type: 'SET_AFTER_HOURS'; payload: boolean }
   | { type: 'SET_WARRANTY'; payload: string }
+  | { type: 'SET_SERVICE_AGREEMENT'; payload: { include: boolean; planId?: string } }
   | { type: 'SET_TECH_NOTES'; payload: string }
   | { type: 'ADD_PHOTO'; payload: EstimatePhoto }
   | { type: 'REMOVE_PHOTO'; payload: string }
@@ -60,7 +63,9 @@ function createEmptyEstimate(): Estimate {
       phone: '',
       email: '',
     },
+    roofType: 'residential',
     shingleType: 'architectural',
+    flatRoofDetails: undefined,
     shingleDamage: [
       { layerDepth: 'surface', count: 0 },
       { layerDepth: 'one-layer', count: 0 },
@@ -74,6 +79,8 @@ function createEmptyEstimate(): Estimate {
     isEmergency: false,
     isAfterHours: false,
     warrantyOptionId: 'standard',
+    includeServiceAgreement: false,
+    selectedServicePlanId: undefined,
     photos: [],
     techNotes: '',
   };
@@ -113,6 +120,19 @@ function estimateReducer(state: EstimateState, action: EstimateAction): Estimate
         },
       };
 
+    case 'SET_ROOF_TYPE':
+      if (!state.currentEstimate) return state;
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          roofType: action.payload,
+          // Reset flat roof details when switching to residential
+          flatRoofDetails: action.payload === 'residential' ? undefined : state.currentEstimate.flatRoofDetails,
+          updatedAt: new Date(),
+        },
+      };
+
     case 'SET_SHINGLE_TYPE':
       if (!state.currentEstimate) return state;
       return {
@@ -120,6 +140,17 @@ function estimateReducer(state: EstimateState, action: EstimateAction): Estimate
         currentEstimate: {
           ...state.currentEstimate,
           shingleType: action.payload,
+          updatedAt: new Date(),
+        },
+      };
+
+    case 'SET_FLAT_ROOF_DETAILS':
+      if (!state.currentEstimate) return state;
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          flatRoofDetails: action.payload,
           updatedAt: new Date(),
         },
       };
@@ -208,6 +239,18 @@ function estimateReducer(state: EstimateState, action: EstimateAction): Estimate
         currentEstimate: {
           ...state.currentEstimate,
           warrantyOptionId: action.payload,
+          updatedAt: new Date(),
+        },
+      };
+
+    case 'SET_SERVICE_AGREEMENT':
+      if (!state.currentEstimate) return state;
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          includeServiceAgreement: action.payload.include,
+          selectedServicePlanId: action.payload.planId,
           updatedAt: new Date(),
         },
       };

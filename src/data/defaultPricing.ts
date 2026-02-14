@@ -6,6 +6,9 @@ import type {
   FixedFees,
   WarrantyOption,
   CompanyInfo,
+  FlatRoofPricing,
+  CommercialRepairType,
+  ServiceAgreementPlan,
 } from '../types';
 
 // =============================================================================
@@ -280,6 +283,242 @@ export const UNIT_NAMES: Record<string, string> = {
   each: 'each',
   linear_ft: 'linear ft',
   area: 'per area',
+};
+
+// =============================================================================
+// COMMERCIAL/FLAT ROOF PRICING (2025 Rates)
+// Materials: TPO, EPDM, PVC, Modified Bitumen, Built-Up, Spray Foam
+// =============================================================================
+
+export const DEFAULT_FLAT_ROOF_PRICING: FlatRoofPricing[] = [
+  {
+    material: 'tpo',
+    name: 'TPO (Thermoplastic Polyolefin)',
+    perSquareFoot: { material: 4.50, labor: 3.50 },
+    minimumArea: 100,
+    warrantyYears: 15,
+  },
+  {
+    material: 'epdm',
+    name: 'EPDM Rubber Membrane',
+    perSquareFoot: { material: 3.75, labor: 3.00 },
+    minimumArea: 100,
+    warrantyYears: 20,
+  },
+  {
+    material: 'pvc',
+    name: 'PVC (Polyvinyl Chloride)',
+    perSquareFoot: { material: 5.50, labor: 4.00 },
+    minimumArea: 100,
+    warrantyYears: 20,
+  },
+  {
+    material: 'modified-bitumen',
+    name: 'Modified Bitumen (Torch/Cold Applied)',
+    perSquareFoot: { material: 4.00, labor: 4.50 },
+    minimumArea: 100,
+    warrantyYears: 15,
+  },
+  {
+    material: 'built-up',
+    name: 'Built-Up Roofing (BUR/Tar & Gravel)',
+    perSquareFoot: { material: 5.00, labor: 5.50 },
+    minimumArea: 200,
+    warrantyYears: 20,
+  },
+  {
+    material: 'spray-foam',
+    name: 'Spray Polyurethane Foam (SPF)',
+    perSquareFoot: { material: 4.75, labor: 3.25 },
+    minimumArea: 200,
+    warrantyYears: 15,
+  },
+];
+
+// Commercial repair types
+export const DEFAULT_COMMERCIAL_REPAIRS: CommercialRepairType[] = [
+  {
+    id: 'seam-repair',
+    name: 'Seam/Weld Repair',
+    description: 'Repair failed seams on TPO/PVC/EPDM',
+    unit: 'linear_ft',
+    material: 3.50,
+    labor: 8.00,
+    active: true,
+  },
+  {
+    id: 'puncture-repair',
+    name: 'Puncture/Hole Patch',
+    description: 'Patch membrane punctures or holes',
+    unit: 'each',
+    material: 25.00,
+    labor: 45.00,
+    active: true,
+  },
+  {
+    id: 'drain-repair',
+    name: 'Roof Drain Repair/Replace',
+    description: 'Repair or replace flat roof drains',
+    unit: 'each',
+    material: 125.00,
+    labor: 175.00,
+    active: true,
+  },
+  {
+    id: 'scupper-repair',
+    name: 'Scupper Box Repair',
+    description: 'Repair scupper drainage boxes',
+    unit: 'each',
+    material: 85.00,
+    labor: 120.00,
+    active: true,
+  },
+  {
+    id: 'parapet-flashing',
+    name: 'Parapet Wall Flashing',
+    description: 'Repair or replace parapet cap flashing',
+    unit: 'linear_ft',
+    material: 8.00,
+    labor: 14.00,
+    active: true,
+  },
+  {
+    id: 'pitch-pocket',
+    name: 'Pitch Pocket Reseal',
+    description: 'Reseal penetration pitch pockets',
+    unit: 'each',
+    material: 35.00,
+    labor: 55.00,
+    active: true,
+  },
+  {
+    id: 'blister-repair',
+    name: 'Blister/Bubble Repair',
+    description: 'Cut and repair membrane blisters',
+    unit: 'each',
+    material: 15.00,
+    labor: 35.00,
+    active: true,
+  },
+  {
+    id: 'coating-application',
+    name: 'Reflective Coating Application',
+    description: 'Silicone or acrylic roof coating',
+    unit: 'sq_ft',
+    material: 1.25,
+    labor: 1.50,
+    active: true,
+  },
+  {
+    id: 'ponding-correction',
+    name: 'Ponding Area Correction',
+    description: 'Add tapered insulation for proper drainage',
+    unit: 'sq_ft',
+    material: 3.50,
+    labor: 4.00,
+    active: true,
+  },
+  {
+    id: 'hvac-curb',
+    name: 'HVAC Curb Flashing',
+    description: 'Flash/reflash around HVAC equipment',
+    unit: 'linear_ft',
+    material: 12.00,
+    labor: 18.00,
+    active: true,
+  },
+];
+
+// Flat roof material display names
+export const FLAT_ROOF_MATERIAL_NAMES: Record<string, string> = {
+  tpo: 'TPO (Thermoplastic Polyolefin)',
+  epdm: 'EPDM Rubber Membrane',
+  pvc: 'PVC (Polyvinyl Chloride)',
+  'modified-bitumen': 'Modified Bitumen',
+  'built-up': 'Built-Up (BUR/Tar & Gravel)',
+  'spray-foam': 'Spray Polyurethane Foam',
+};
+
+// =============================================================================
+// SERVICE AGREEMENT PLANS (Recurring Maintenance)
+// =============================================================================
+
+export const DEFAULT_SERVICE_AGREEMENT_PLANS: ServiceAgreementPlan[] = [
+  {
+    id: 'basic',
+    tier: 'basic',
+    name: 'Basic Care',
+    description: 'Essential roof maintenance for peace of mind',
+    annualPrice: 199,
+    features: [
+      'Annual roof inspection',
+      'Inspection report with photos',
+      'Priority scheduling',
+      '10% discount on repairs',
+    ],
+    inspectionsPerYear: 1,
+    discountPercent: 10,
+    priorityService: true,
+    emergencyResponse: false,
+    gutterCleaning: false,
+    minorRepairsIncluded: false,
+    minorRepairLimit: 0,
+  },
+  {
+    id: 'standard',
+    tier: 'standard',
+    name: 'Standard Protection',
+    description: 'Comprehensive care with semi-annual inspections',
+    annualPrice: 399,
+    features: [
+      'Semi-annual inspections (Spring & Fall)',
+      'Detailed inspection reports with photos',
+      'Gutter debris clearing (2x/year)',
+      'Priority scheduling',
+      '15% discount on all repairs',
+      'Minor repairs included (up to $150/visit)',
+    ],
+    inspectionsPerYear: 2,
+    discountPercent: 15,
+    priorityService: true,
+    emergencyResponse: false,
+    gutterCleaning: true,
+    minorRepairsIncluded: true,
+    minorRepairLimit: 150,
+  },
+  {
+    id: 'premium',
+    tier: 'premium',
+    name: 'Premium Complete',
+    description: 'Ultimate protection with quarterly inspections',
+    annualPrice: 699,
+    features: [
+      'Quarterly inspections (4x/year)',
+      'Comprehensive inspection reports',
+      'Gutter cleaning (4x/year)',
+      'Emergency response within 24 hours',
+      'Priority scheduling (same-week)',
+      '20% discount on all repairs',
+      'Minor repairs included (up to $300/visit)',
+      'Proactive maintenance alerts',
+      'Transferable to new owner',
+    ],
+    inspectionsPerYear: 4,
+    discountPercent: 20,
+    priorityService: true,
+    emergencyResponse: true,
+    gutterCleaning: true,
+    minorRepairsIncluded: true,
+    minorRepairLimit: 300,
+  },
+];
+
+// Billing frequency display names
+export const BILLING_FREQUENCY_NAMES: Record<string, string> = {
+  annual: 'Annually',
+  'semi-annual': 'Semi-Annually',
+  quarterly: 'Quarterly',
+  monthly: 'Monthly',
 };
 
 // =============================================================================

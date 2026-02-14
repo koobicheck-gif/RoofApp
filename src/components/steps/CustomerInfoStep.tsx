@@ -1,8 +1,8 @@
 import { Input, CardSelect, Card, CardHeader } from '../ui';
 import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
-import { SHINGLE_TYPE_NAMES } from '../../data/defaultPricing';
+import { SHINGLE_TYPE_NAMES, FLAT_ROOF_MATERIAL_NAMES, DEFAULT_FLAT_ROOF_PRICING } from '../../data/defaultPricing';
 import { PropertyHistoryPanel } from '../PropertyHistoryPanel';
-import type { ShingleType, Customer } from '../../types';
+import type { ShingleType, Customer, RoofType, FlatRoofMaterial, FlatRoofDetails } from '../../types';
 
 const SHINGLE_OPTIONS = [
   {
@@ -22,6 +22,25 @@ const SHINGLE_OPTIONS = [
   },
 ];
 
+const ROOF_TYPE_OPTIONS = [
+  {
+    value: 'residential',
+    label: 'Residential (Pitched)',
+    description: 'Shingle roofs with slope',
+  },
+  {
+    value: 'commercial',
+    label: 'Commercial (Flat)',
+    description: 'Flat or low-slope roofs',
+  },
+];
+
+const FLAT_ROOF_MATERIAL_OPTIONS = DEFAULT_FLAT_ROOF_PRICING.map((p) => ({
+  value: p.material,
+  label: FLAT_ROOF_MATERIAL_NAMES[p.material],
+  description: `${p.warrantyYears}-year warranty`,
+}));
+
 export function CustomerInfoStep() {
   const { dispatch } = useEstimate();
   const estimate = useCurrentEstimate();
@@ -35,9 +54,50 @@ export function CustomerInfoStep() {
     });
   };
 
+  const updateRoofType = (value: string) => {
+    dispatch({ type: 'SET_ROOF_TYPE', payload: value as RoofType });
+    // Initialize flat roof details when switching to commercial
+    if (value === 'commercial' && !estimate.flatRoofDetails) {
+      dispatch({
+        type: 'SET_FLAT_ROOF_DETAILS',
+        payload: {
+          material: 'tpo',
+          totalArea: 0,
+          drainageIssues: false,
+          pondingAreas: 0,
+          seamCondition: 'good',
+          flashingCondition: 'good',
+          membraneCondition: 'good',
+          roofAge: 0,
+        },
+      });
+    }
+  };
+
   const updateShingleType = (value: string) => {
     dispatch({ type: 'SET_SHINGLE_TYPE', payload: value as ShingleType });
   };
+
+  const updateFlatRoofMaterial = (value: string) => {
+    if (estimate.flatRoofDetails) {
+      dispatch({
+        type: 'SET_FLAT_ROOF_DETAILS',
+        payload: { ...estimate.flatRoofDetails, material: value as FlatRoofMaterial },
+      });
+    }
+  };
+
+  const updateFlatRoofDetails = (field: keyof FlatRoofDetails, value: unknown) => {
+    if (estimate.flatRoofDetails) {
+      dispatch({
+        type: 'SET_FLAT_ROOF_DETAILS',
+        payload: { ...estimate.flatRoofDetails, [field]: value },
+      });
+    }
+  };
+
+  // Get roofType with fallback for existing estimates
+  const roofType = estimate.roofType || 'residential';
 
   return (
     <div className="space-y-6">
@@ -121,19 +181,142 @@ export function CustomerInfoStep() {
         </div>
       </Card>
 
-      {/* Shingle Type Selection */}
+      {/* Roof Type Selection */}
       <Card>
         <CardHeader
-          title="Shingle Type"
-          subtitle="Select the type of shingles on the roof"
+          title="Roof Type"
+          subtitle="Select residential (pitched) or commercial (flat)"
         />
         <CardSelect
-          options={SHINGLE_OPTIONS}
-          value={estimate.shingleType}
-          onChange={updateShingleType}
-          columns={3}
+          options={ROOF_TYPE_OPTIONS}
+          value={roofType}
+          onChange={updateRoofType}
+          columns={2}
         />
       </Card>
+
+      {/* Residential: Shingle Type Selection */}
+      {roofType === 'residential' && (
+        <Card>
+          <CardHeader
+            title="Shingle Type"
+            subtitle="Select the type of shingles on the roof"
+          />
+          <CardSelect
+            options={SHINGLE_OPTIONS}
+            value={estimate.shingleType}
+            onChange={updateShingleType}
+            columns={3}
+          />
+        </Card>
+      )}
+
+      {/* Commercial: Flat Roof Details */}
+      {roofType === 'commercial' && (
+        <Card>
+          <CardHeader
+            title="Flat Roof Details"
+            subtitle="Enter details about the commercial flat roof"
+          />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Roof Material
+              </label>
+              <CardSelect
+                options={FLAT_ROOF_MATERIAL_OPTIONS}
+                value={estimate.flatRoofDetails?.material || 'tpo'}
+                onChange={updateFlatRoofMaterial}
+                columns={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Total Roof Area (sq ft)"
+                type="number"
+                value={estimate.flatRoofDetails?.totalArea?.toString() || '0'}
+                onChange={(e) => updateFlatRoofDetails('totalArea', parseInt(e.target.value) || 0)}
+                placeholder="5000"
+              />
+              <Input
+                label="Roof Age (years)"
+                type="number"
+                value={estimate.flatRoofDetails?.roofAge?.toString() || '0'}
+                onChange={(e) => updateFlatRoofDetails('roofAge', parseInt(e.target.value) || 0)}
+                placeholder="10"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Membrane Condition
+                </label>
+                <select
+                  value={estimate.flatRoofDetails?.membraneCondition || 'good'}
+                  onChange={(e) => updateFlatRoofDetails('membraneCondition', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                >
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="poor">Poor</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Seam Condition
+                </label>
+                <select
+                  value={estimate.flatRoofDetails?.seamCondition || 'good'}
+                  onChange={(e) => updateFlatRoofDetails('seamCondition', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                >
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="poor">Poor</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Flashing Condition
+                </label>
+                <select
+                  value={estimate.flatRoofDetails?.flashingCondition || 'good'}
+                  onChange={(e) => updateFlatRoofDetails('flashingCondition', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                >
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="poor">Poor</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={estimate.flatRoofDetails?.drainageIssues || false}
+                  onChange={(e) => updateFlatRoofDetails('drainageIssues', e.target.checked)}
+                  className="w-4 h-4 text-[#00224a] rounded"
+                />
+                <span className="text-sm text-gray-700">Drainage Issues</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-700">Ponding Areas:</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={estimate.flatRoofDetails?.pondingAreas || 0}
+                  onChange={(e) => updateFlatRoofDetails('pondingAreas', parseInt(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

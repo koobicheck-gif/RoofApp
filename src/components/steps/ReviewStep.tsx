@@ -4,7 +4,7 @@ import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calculateEstimate';
 import { generateEstimatePdf, downloadPdf } from '../../utils/generatePdf';
-import { SHINGLE_TYPE_NAMES } from '../../data/defaultPricing';
+import { SHINGLE_TYPE_NAMES, DEFAULT_SERVICE_AGREEMENT_PLANS, FLAT_ROOF_MATERIAL_NAMES } from '../../data/defaultPricing';
 
 export function ReviewStep() {
   const { dispatch } = useEstimate();
@@ -37,8 +37,12 @@ export function ReviewStep() {
   const selectedWarranty = pricingState.warrantyOptions.find(
     (w) => w.id === estimate.warrantyOptionId
   );
+  const selectedServicePlan = estimate.includeServiceAgreement
+    ? DEFAULT_SERVICE_AGREEMENT_PLANS.find((p) => p.id === estimate.selectedServicePlanId)
+    : null;
 
   const hasShingleRepairs = calculation.shingleLineItems.length > 0;
+  const isCommercial = estimate.roofType === 'commercial';
   const hasAdditionalRepairs =
     calculation.additionalRepairLineItems.length > 0 ||
     calculation.customRepairLineItems.length > 0;
@@ -163,8 +167,12 @@ export function ReviewStep() {
               <p className="font-semibold text-gray-900">{estimate.estimateNumber}</p>
               <p className="text-gray-500 mt-2">Date</p>
               <p className="text-gray-700">{formatDate(estimate.createdAt)}</p>
-              <p className="text-gray-500 mt-2">Shingle Type</p>
-              <p className="text-gray-700">{SHINGLE_TYPE_NAMES[estimate.shingleType]}</p>
+              <p className="text-gray-500 mt-2">Roof Type</p>
+              <p className="text-gray-700">
+                {isCommercial
+                  ? `Commercial - ${FLAT_ROOF_MATERIAL_NAMES[estimate.flatRoofDetails?.material || 'tpo']}`
+                  : `Residential - ${SHINGLE_TYPE_NAMES[estimate.shingleType]}`}
+              </p>
             </div>
           </div>
 
@@ -348,7 +356,7 @@ export function ReviewStep() {
 
               <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                 <span className="text-xl font-bold text-gray-900">TOTAL</span>
-                <span className="text-2xl font-bold text-blue-600">
+                <span className="text-2xl font-bold text-[#00224a]">
                   {formatCurrency(calculation.grandTotal)}
                 </span>
               </div>
@@ -365,6 +373,45 @@ export function ReviewStep() {
               This estimate is valid for 30 days from the date above.
             </p>
           </div>
+
+          {/* Service Agreement */}
+          {selectedServicePlan && (
+            <div className="bg-[#00224a]/5 border border-[#00224a]/20 rounded-lg p-4 mt-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-[#00224a] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-[#00224a]">
+                    Service Agreement: {selectedServicePlan.name}
+                  </h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedServicePlan.inspectionsPerYear} inspection
+                    {selectedServicePlan.inspectionsPerYear > 1 ? 's' : ''} per year •{' '}
+                    {selectedServicePlan.discountPercent}% off future repairs
+                  </p>
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="text-lg font-bold text-[#00224a]">
+                      {formatCurrency(selectedServicePlan.annualPrice)}
+                    </span>
+                    <span className="text-sm text-gray-500">/year</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
