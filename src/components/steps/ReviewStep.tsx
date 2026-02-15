@@ -43,6 +43,7 @@ export function ReviewStep() {
 
   const hasShingleRepairs = calculation.shingleLineItems.length > 0;
   const isCommercial = estimate.roofType === 'commercial';
+  const hasFlatRoofRepairs = calculation.flatRoofLineItems.length > 0;
   const hasAdditionalRepairs =
     calculation.additionalRepairLineItems.length > 0 ||
     calculation.customRepairLineItems.length > 0;
@@ -176,6 +177,56 @@ export function ReviewStep() {
             </div>
           </div>
 
+          {/* Flat Roof Condition Summary (Commercial) */}
+          {isCommercial && estimate.flatRoofDetails && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Flat Roof Condition</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-500">Total Area:</span>{' '}
+                  <span className="text-gray-900">{estimate.flatRoofDetails.totalArea.toLocaleString()} sq ft</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Roof Age:</span>{' '}
+                  <span className="text-gray-900">{estimate.flatRoofDetails.roofAge} years</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Membrane:</span>{' '}
+                  <span className={`capitalize font-medium ${
+                    estimate.flatRoofDetails.membraneCondition === 'poor' ? 'text-red-600' :
+                    estimate.flatRoofDetails.membraneCondition === 'fair' ? 'text-amber-600' :
+                    'text-green-600'
+                  }`}>{estimate.flatRoofDetails.membraneCondition}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Seams:</span>{' '}
+                  <span className={`capitalize font-medium ${
+                    estimate.flatRoofDetails.seamCondition === 'poor' ? 'text-red-600' :
+                    estimate.flatRoofDetails.seamCondition === 'fair' ? 'text-amber-600' :
+                    'text-green-600'
+                  }`}>{estimate.flatRoofDetails.seamCondition}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Flashing:</span>{' '}
+                  <span className={`capitalize font-medium ${
+                    estimate.flatRoofDetails.flashingCondition === 'poor' ? 'text-red-600' :
+                    estimate.flatRoofDetails.flashingCondition === 'fair' ? 'text-amber-600' :
+                    'text-green-600'
+                  }`}>{estimate.flatRoofDetails.flashingCondition}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Ponding Areas:</span>{' '}
+                  <span className="text-gray-900">{estimate.flatRoofDetails.pondingAreas}</span>
+                </div>
+                {estimate.flatRoofDetails.drainageIssues && (
+                  <div className="col-span-2">
+                    <span className="text-amber-600 font-medium">Drainage issues noted</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Line Items */}
           <div className="border-t border-gray-200 pt-4">
             {/* Shingle Repairs */}
@@ -230,6 +281,64 @@ export function ReviewStep() {
                     <span className="text-gray-600">Shingle Repairs Subtotal</span>
                     <span className="font-semibold">
                       {formatCurrency(calculation.shingleSubtotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Flat Roof Repairs (Commercial) */}
+            {hasFlatRoofRepairs && (
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">FLAT ROOF REPAIRS</h3>
+                <div className="border-b border-gray-100 pb-1 mb-2">
+                  <div className="grid grid-cols-12 text-xs text-gray-500 font-medium">
+                    <div className="col-span-5">Description</div>
+                    <div className="col-span-2 text-right">Qty</div>
+                    {viewMode === 'detailed' && (
+                      <>
+                        <div className="col-span-2 text-right">Material</div>
+                        <div className="col-span-2 text-right">Labor</div>
+                      </>
+                    )}
+                    <div
+                      className={`text-right ${viewMode === 'detailed' ? 'col-span-1' : 'col-span-5'}`}
+                    >
+                      Total
+                    </div>
+                  </div>
+                </div>
+                {calculation.flatRoofLineItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-12 text-sm py-1 hover:bg-gray-50"
+                  >
+                    <div className="col-span-5 text-gray-700">{item.description}</div>
+                    <div className="col-span-2 text-right text-gray-600">
+                      {item.quantity} {item.unit}
+                    </div>
+                    {viewMode === 'detailed' && (
+                      <>
+                        <div className="col-span-2 text-right text-gray-600">
+                          {formatCurrency(item.material)}
+                        </div>
+                        <div className="col-span-2 text-right text-gray-600">
+                          {formatCurrency(item.labor)}
+                        </div>
+                      </>
+                    )}
+                    <div
+                      className={`text-right font-medium text-gray-900 ${viewMode === 'detailed' ? 'col-span-1' : 'col-span-5'}`}
+                    >
+                      {formatCurrency(item.subtotal)}
+                    </div>
+                  </div>
+                ))}
+                <div className="border-t border-gray-100 pt-2 mt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Flat Roof Repairs Subtotal</span>
+                    <span className="font-semibold">
+                      {formatCurrency(calculation.flatRoofSubtotal)}
                     </span>
                   </div>
                 </div>
@@ -351,6 +460,15 @@ export function ReviewStep() {
                     {selectedWarranty?.name}
                   </span>
                   <span>+{formatCurrency(calculation.warrantyFee)}</span>
+                </div>
+              )}
+
+              {calculation.serviceAgreementFee > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    Service Agreement ({selectedServicePlan?.name})
+                  </span>
+                  <span>+{formatCurrency(calculation.serviceAgreementFee)}</span>
                 </div>
               )}
 

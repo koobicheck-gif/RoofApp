@@ -18,6 +18,8 @@ export function SiteConditionsStep() {
 
   if (!estimate) return null;
 
+  const isCommercial = estimate.roofType === 'commercial';
+
   const selectedPitch = pitchMultipliers.find((p) => p.id === estimate.pitchMultiplierId);
   const selectedAccessibility = accessibilityMultipliers.find(
     (a) => a.id === estimate.accessibilityMultiplierId
@@ -43,51 +45,66 @@ export function SiteConditionsStep() {
 
   return (
     <div className="space-y-6">
-      {/* Roof Pitch */}
-      <Card>
-        <CardHeader
-          title="Roof Pitch"
-          subtitle="Select the steepness of the roof"
-        />
+      {/* Roof Pitch - Hidden for Commercial (flat roofs) */}
+      {!isCommercial && (
+        <Card>
+          <CardHeader
+            title="Roof Pitch"
+            subtitle="Select the steepness of the roof"
+          />
 
-        {/* Visual pitch guide */}
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-end justify-center gap-4 h-24">
-            <div className="text-center">
-              <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-5deg)' }} />
-              <span className="text-xs text-gray-500 mt-1 block">Low</span>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-20deg)' }} />
-              <span className="text-xs text-gray-500 mt-1 block">Medium</span>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-35deg)' }} />
-              <span className="text-xs text-gray-500 mt-1 block">Steep</span>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-50deg)' }} />
-              <span className="text-xs text-gray-500 mt-1 block">Extreme</span>
+          {/* Visual pitch guide */}
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-end justify-center gap-4 h-24">
+              <div className="text-center">
+                <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-5deg)' }} />
+                <span className="text-xs text-gray-500 mt-1 block">Low</span>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-20deg)' }} />
+                <span className="text-xs text-gray-500 mt-1 block">Medium</span>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-35deg)' }} />
+                <span className="text-xs text-gray-500 mt-1 block">Steep</span>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-4 bg-gray-400 rounded-sm" style={{ transform: 'rotate(-50deg)' }} />
+                <span className="text-xs text-gray-500 mt-1 block">Extreme</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <CardSelect
-          options={pitchOptions}
-          value={estimate.pitchMultiplierId}
-          onChange={(value) => dispatch({ type: 'SET_PITCH_MULTIPLIER', payload: value })}
-          columns={2}
-        />
+          <CardSelect
+            options={pitchOptions}
+            value={estimate.pitchMultiplierId}
+            onChange={(value) => dispatch({ type: 'SET_PITCH_MULTIPLIER', payload: value })}
+            columns={2}
+          />
 
-        {selectedPitch && selectedPitch.multiplier > 1 && (
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-800">
-              A {((selectedPitch.multiplier - 1) * 100).toFixed(0)}% adjustment will be applied
-              due to the roof pitch requiring additional safety measures and slower work pace.
+          {selectedPitch && selectedPitch.multiplier > 1 && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                A {((selectedPitch.multiplier - 1) * 100).toFixed(0)}% adjustment will be applied
+                due to the roof pitch requiring additional safety measures and slower work pace.
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {isCommercial && (
+        <div className="bg-[#00224a]/5 border border-[#00224a]/20 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-[#00224a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-[#00224a]">
+              <strong>Flat roof</strong> - pitch adjustment does not apply to commercial flat roofs.
             </p>
           </div>
-        )}
-      </Card>
+        </div>
+      )}
 
       {/* Accessibility */}
       <Card>

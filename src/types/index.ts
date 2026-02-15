@@ -185,10 +185,12 @@ export interface EstimateCalculation {
   shingleLineItems: LineItem[];
   additionalRepairLineItems: LineItem[];
   customRepairLineItems: LineItem[];
+  flatRoofLineItems: LineItem[];
 
   shingleSubtotal: number;
   additionalRepairsSubtotal: number;
   customRepairsSubtotal: number;
+  flatRoofSubtotal: number;
 
   subtotalBeforeMultipliers: number;
   pitchAdjustment: number;
@@ -199,6 +201,7 @@ export interface EstimateCalculation {
   emergencySurcharge: number;
   afterHoursSurcharge: number;
   warrantyFee: number;
+  serviceAgreementFee: number;
 
   grandTotal: number;
 }

@@ -4,8 +4,13 @@ import { Card, CardHeader, Button, Input, InlineNumberInput, Select } from '../u
 import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
 import { useAdditionalRepairs } from '../../context/PricingContext';
 import { formatCurrency } from '../../utils/calculateEstimate';
-import { UNIT_NAMES } from '../../data/defaultPricing';
+import { UNIT_NAMES, DEFAULT_COMMERCIAL_REPAIRS } from '../../data/defaultPricing';
 import type { AdditionalRepair, CustomRepair } from '../../types';
+
+const COMMERCIAL_UNIT_NAMES: Record<string, string> = {
+  ...UNIT_NAMES,
+  sq_ft: 'sq ft',
+};
 
 export function AdditionalRepairsStep() {
   const { dispatch } = useEstimate();
@@ -21,6 +26,11 @@ export function AdditionalRepairsStep() {
   });
 
   if (!estimate) return null;
+
+  const isCommercial = estimate.roofType === 'commercial';
+
+  // Use commercial repairs when commercial is selected
+  const commercialRepairs = DEFAULT_COMMERCIAL_REPAIRS.filter((r) => r.active);
 
   const getRepairQuantity = (repairTypeId: string): number => {
     return estimate.additionalRepairs.find((r) => r.repairTypeId === repairTypeId)?.quantity || 0;
@@ -101,11 +111,73 @@ export function AdditionalRepairsStep() {
 
   return (
     <div className="space-y-6">
-      {/* Standard Repairs */}
+      {/* Commercial Repairs */}
+      {isCommercial && (
+        <Card>
+          <CardHeader
+            title="Commercial Flat Roof Repairs"
+            subtitle="Select additional repairs for the flat roof"
+          />
+
+          <div className="space-y-3">
+            {commercialRepairs.map((repairType) => {
+              const quantity = getRepairQuantity(repairType.id);
+              const total = quantity * (repairType.material + repairType.labor);
+              const isSelected = quantity > 0;
+
+              return (
+                <div
+                  key={repairType.id}
+                  className={`border rounded-lg p-4 transition-colors ${
+                    isSelected ? 'border-[#00224a] bg-[#00224a]/5' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{repairType.name}</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">{repairType.description}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {formatCurrency(repairType.material + repairType.labor)}/{' '}
+                        {COMMERCIAL_UNIT_NAMES[repairType.unit]}
+                        <span className="text-gray-400 ml-2">
+                          (Mat: {formatCurrency(repairType.material)} + Lab:{' '}
+                          {formatCurrency(repairType.labor)})
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <InlineNumberInput
+                        value={quantity}
+                        onChange={(value) => updateRepairQuantity(repairType.id, value)}
+                        min={0}
+                        max={9999}
+                      />
+                      <span className="text-sm text-gray-500 w-12">
+                        {COMMERCIAL_UNIT_NAMES[repairType.unit]}
+                      </span>
+                      <div className="w-20 text-right">
+                        <span
+                          className={`font-semibold ${
+                            total > 0 ? 'text-[#00224a]' : 'text-gray-400'
+                          }`}
+                        >
+                          {formatCurrency(total)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Standard Residential Repairs */}
       <Card>
         <CardHeader
-          title="Additional Repairs"
-          subtitle="Select any additional repairs needed"
+          title={isCommercial ? 'General Repairs' : 'Additional Repairs'}
+          subtitle={isCommercial ? 'General repairs that may also apply' : 'Select any additional repairs needed'}
         />
 
         <div className="space-y-3">
