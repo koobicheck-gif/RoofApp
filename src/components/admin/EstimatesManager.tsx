@@ -4,6 +4,7 @@ import { useAllEstimates, useEstimate } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calculateEstimate';
 import { SHINGLE_TYPE_NAMES } from '../../data/defaultPricing';
+import { ApproveScheduleModal } from '../jobs/ApproveScheduleModal';
 import type { Estimate } from '../../types';
 
 type StatusFilter = 'all' | Estimate['status'];
@@ -37,6 +38,7 @@ export function EstimatesManager() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [searchTerm, setSearchTerm] = useState('');
+  const [approveEstimate, setApproveEstimate] = useState<Estimate | null>(null);
 
   const getEstimateTotal = (estimate: Estimate): number => {
     const calculation = calculateEstimate({
@@ -212,6 +214,15 @@ export function EstimatesManager() {
                         {formatCurrency(total)}
                       </div>
                       <div className="flex items-center gap-1 mt-2">
+                        {(estimate.status === 'draft' || estimate.status === 'sent') && (
+                          <button
+                            onClick={() => setApproveEstimate(estimate)}
+                            className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+                            title="Approve & Schedule"
+                          >
+                            Approve
+                          </button>
+                        )}
                         <select
                           value={estimate.status}
                           onChange={(e) => updateStatus(estimate.id, e.target.value as Estimate['status'])}
@@ -252,6 +263,14 @@ export function EstimatesManager() {
           </div>
         )}
       </Card>
+
+      {/* Approve & Schedule Modal */}
+      {approveEstimate && (
+        <ApproveScheduleModal
+          estimate={approveEstimate}
+          onClose={() => setApproveEstimate(null)}
+        />
+      )}
     </div>
   );
 }
