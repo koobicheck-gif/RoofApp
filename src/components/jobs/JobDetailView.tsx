@@ -4,18 +4,59 @@ import { useAllEstimates, useEstimate } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
 import { useJobs } from '../../context/JobsContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calculateEstimate';
-import type { Estimate, JobSchedule, JobTimelineEvent } from '../../types';
+import type { Estimate, JobSchedule, JobTimelineEvent, MaterialChecklistItem } from '../../types';
 
 interface JobDetailViewProps {
   jobId: string;
   onBack: () => void;
 }
 
+const COMMON_MATERIALS: { name: string; unit: string }[] = [
+  { name: 'Shingle bundles', unit: 'bundles' },
+  { name: 'Underlayment (roll)', unit: 'rolls' },
+  { name: 'Flashing (ft)', unit: 'ft' },
+  { name: 'Ridge cap', unit: 'pcs' },
+  { name: 'Pipe boots', unit: 'each' },
+  { name: 'Roofing nails (lbs)', unit: 'lbs' },
+  { name: 'Sealant tubes', unit: 'tubes' },
+  { name: 'Plywood sheets', unit: 'sheets' },
+  { name: 'Drip edge (ft)', unit: 'ft' },
+  { name: 'Starter strip (ft)', unit: 'ft' },
+  { name: 'TPO membrane (roll)', unit: 'rolls' },
+  { name: 'EPDM adhesive', unit: 'gal' },
+  { name: 'Roof coating (5 gal)', unit: 'buckets' },
+  { name: 'Caulking', unit: 'tubes' },
+  { name: 'Vent boots', unit: 'each' },
+];
+
+// Store materials in localStorage
+const MATERIALS_KEY = 'roofapp_materials';
+
+function loadMaterials(jobId: string): MaterialChecklistItem[] {
+  try {
+    const data = localStorage.getItem(MATERIALS_KEY);
+    if (data) {
+      const all = JSON.parse(data);
+      return all[jobId] || [];
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveMaterials(jobId: string, items: MaterialChecklistItem[]) {
+  try {
+    const data = localStorage.getItem(MATERIALS_KEY);
+    const all = data ? JSON.parse(data) : {};
+    all[jobId] = items;
+    localStorage.setItem(MATERIALS_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
+
 export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
   const estimates = useAllEstimates();
   const { dispatch: estimateDispatch } = useEstimate();
   const { state: pricingState } = usePricing();
-  const { dispatch: jobsDispatch, getSchedule, getTimeline, getCrewMember, getActiveCrew } = useJobs();
+  const { state: jobsState, dispatch: jobsDispatch, getSchedule, getTimeline, getCrewMember, getActiveCrew } = useJobs();
 
   const job = estimates.find((e) => e.id === jobId);
   const schedule = getSchedule(jobId);
@@ -30,6 +71,9 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
     crewIds: schedule?.crewIds || [],
   });
   const [note, setNote] = useState('');
+  const [materials, setMaterials] = useState<MaterialChecklistItem[]>(() => loadMaterials(jobId));
+  const [showAddMaterial, setShowAddMaterial] = useState(false);
+  const [showScope, setShowScope] = useState(false);
 
   if (!job) {
     return (
@@ -104,6 +148,53 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
     }));
   };
 
+  // Material checklist handlers
+  const handleAddMaterial = (name: string, unit: string, quantity: number = 1) => {
+    const newItem: MaterialChecklistItem = {
+      id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      name,
+      quantity,
+      unit,
+      checked: false,
+    };
+    const updated = [...materials, newItem];
+    setMaterials(updated);
+    saveMaterials(jobId, updated);
+    setShowAddMaterial(false);
+  };
+
+  const handleToggleMaterial = (id: string) => {
+    const updated = materials.map((m) => m.id === id ? { ...m, checked: !m.checked } : m);
+    setMaterials(updated);
+    saveMaterials(jobId, updated);
+  };
+
+  const handleRemoveMaterial = (id: string) => {
+    const updated = materials.filter((m) => m.id !== id);
+    setMaterials(updated);
+    saveMaterials(jobId, updated);
+  };
+
+  const handleUpdateMaterialQty = (id: string, qty: number) => {
+    const updated = materials.map((m) => m.id === id ? { ...m, quantity: qty } : m);
+    setMaterials(updated);
+    saveMaterials(jobId, updated);
+  };
+
+  // Check crew availability for the selected date
+  const isCrewAvailable = (memberId: string, date: string): boolean => {
+    const member = jobsState.crew.find((c) => c.id === memberId);
+    if (!member) return false;
+    if (member.daysOff?.includes(date)) return false;
+    // Check if already assigned to another job on this date
+    for (const [estId, sched] of Object.entries(jobsState.schedules)) {
+      if (estId !== jobId && sched.scheduledDate === date && sched.crewIds.includes(memberId)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const getStatusColor = (status: Estimate['status']): string => {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-700';
@@ -142,6 +233,8 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
         );
     }
   };
+
+  const checkedCount = materials.filter((m) => m.checked).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -236,6 +329,17 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               </svg>
               Call
             </a>
+            {job.customer.email && (
+              <a
+                href={`mailto:${job.customer.email}`}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email
+              </a>
+            )}
             <a
               href={`https://maps.google.com/?q=${encodeURIComponent(`${job.customer.address}, ${job.customer.city}, ${job.customer.state} ${job.customer.zip}`)}`}
               target="_blank"
@@ -250,6 +354,32 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
             </a>
           </div>
         </Card>
+
+        {/* Scope of Work */}
+        {job.scopeOfWork && (
+          <Card>
+            <CardHeader
+              title="Scope of Work"
+              action={
+                <button
+                  onClick={() => setShowScope(!showScope)}
+                  className="text-sm text-[#00224a] hover:underline"
+                >
+                  {showScope ? 'Collapse' : 'Expand'}
+                </button>
+              }
+            />
+            {showScope ? (
+              <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 p-4 rounded-lg max-h-96 overflow-auto">
+                {job.scopeOfWork}
+              </pre>
+            ) : (
+              <p className="text-sm text-gray-600 line-clamp-3">
+                {job.scopeOfWork.split('\n').slice(0, 3).join(' ')}...
+              </p>
+            )}
+          </Card>
+        )}
 
         {/* Schedule */}
         {schedule && !isScheduling && (
@@ -266,7 +396,7 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               <div>
                 <div className="text-sm text-gray-500">Date & Time</div>
                 <div className="font-medium text-purple-600">
-                  {formatDate(new Date(schedule.scheduledDate))} at {schedule.scheduledTime}
+                  {formatDate(new Date(schedule.scheduledDate + 'T12:00'))} at {schedule.scheduledTime}
                 </div>
               </div>
               <div>
@@ -281,9 +411,17 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
                   {schedule.crewIds.map((id) => {
                     const member = getCrewMember(id);
                     return member ? (
-                      <span key={id} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
-                        {member.name}
-                      </span>
+                      <div key={id} className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm">
+                        <span className="font-medium">{member.name}</span>
+                        <span className="text-purple-500 text-xs">({member.role})</span>
+                        {member.phone && (
+                          <a href={`tel:${member.phone}`} className="ml-1 hover:text-purple-900">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
                     ) : null;
                   })}
                 </div>
@@ -348,35 +486,77 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assign Crew</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign Crew
+                  {scheduleForm.scheduledDate && (
+                    <span className="font-normal text-gray-400 ml-2">
+                      (availability for {new Date(scheduleForm.scheduledDate + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
+                    </span>
+                  )}
+                </label>
                 <div className="space-y-2">
-                  {activeCrew.map((member) => (
-                    <label
-                      key={member.id}
-                      className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
-                        scheduleForm.crewIds.includes(member.id)
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={scheduleForm.crewIds.includes(member.id)}
-                        onChange={() => handleCrewToggle(member.id)}
-                        className="sr-only"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{member.name}</div>
-                        <div className="text-sm text-gray-500">{member.role} • {member.phone}</div>
-                      </div>
-                      {scheduleForm.crewIds.includes(member.id) && (
-                        <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </label>
-                  ))}
+                  {activeCrew.map((member) => {
+                    const available = scheduleForm.scheduledDate
+                      ? isCrewAvailable(member.id, scheduleForm.scheduledDate)
+                      : true;
+                    const isSelected = scheduleForm.crewIds.includes(member.id);
+
+                    return (
+                      <label
+                        key={member.id}
+                        className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                          !available && !isSelected
+                            ? 'border-red-200 bg-red-50/50 opacity-60'
+                            : isSelected
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleCrewToggle(member.id)}
+                          className="sr-only"
+                          disabled={!available && !isSelected}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{member.name}</span>
+                            {!available && (
+                              <span className="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full">
+                                Unavailable
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {member.role}
+                            {member.hourlyRate ? ` • $${member.hourlyRate}/hr` : ''}
+                            {member.specialties && member.specialties.length > 0 && (
+                              <span className="ml-1 text-xs text-purple-500">
+                                ({member.specialties.slice(0, 2).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
+                {scheduleForm.crewIds.length > 0 && (
+                  <div className="mt-2 text-sm text-gray-500">
+                    Est. crew cost: ${(
+                      scheduleForm.crewIds.reduce((sum, id) => {
+                        const m = activeCrew.find((c) => c.id === id);
+                        return sum + (m?.hourlyRate || 0);
+                      }, 0) * scheduleForm.estimatedDuration
+                    ).toFixed(0)} ({scheduleForm.estimatedDuration}hrs)
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-4">
@@ -390,6 +570,112 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
             </div>
           </Card>
         )}
+
+        {/* Materials Checklist */}
+        <Card>
+          <CardHeader
+            title="Materials Checklist"
+            subtitle={materials.length > 0 ? `${checkedCount}/${materials.length} loaded` : 'Track materials for this job'}
+            action={
+              <Button size="sm" variant="outline" onClick={() => setShowAddMaterial(!showAddMaterial)}>
+                {showAddMaterial ? 'Cancel' : 'Add Material'}
+              </Button>
+            }
+          />
+
+          {showAddMaterial && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 mb-2">Quick Add</p>
+              <div className="flex flex-wrap gap-2">
+                {COMMON_MATERIALS.filter(
+                  (cm) => !materials.some((m) => m.name === cm.name)
+                ).map((cm) => (
+                  <button
+                    key={cm.name}
+                    onClick={() => handleAddMaterial(cm.name, cm.unit)}
+                    className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                  >
+                    + {cm.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {materials.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-4">
+              No materials added yet. Tap "Add Material" to build your checklist.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {materials.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
+                    item.checked ? 'bg-green-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <button
+                    onClick={() => handleToggleMaterial(item.id)}
+                    className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      item.checked
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : 'border-gray-300 hover:border-green-400'
+                    }`}
+                  >
+                    {item.checked && (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                  <span className={`flex-1 text-sm ${item.checked ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                    {item.name}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleUpdateMaterialQty(item.id, Math.max(1, item.quantity - 1))}
+                      className="w-6 h-6 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded text-sm"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm font-medium w-8 text-center text-gray-600">
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => handleUpdateMaterialQty(item.id, item.quantity + 1)}
+                      className="w-6 h-6 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded text-sm"
+                    >
+                      +
+                    </button>
+                    <span className="text-xs text-gray-400 w-12">{item.unit}</span>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveMaterial(item.id)}
+                    className="text-gray-300 hover:text-red-500 p-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {materials.length > 0 && (
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">{checkedCount} of {materials.length} items loaded</span>
+                    <div className="w-32 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all"
+                        style={{ width: `${materials.length > 0 ? (checkedCount / materials.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
 
         {/* Add Note */}
         <Card>

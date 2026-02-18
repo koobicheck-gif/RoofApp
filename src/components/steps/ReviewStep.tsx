@@ -4,6 +4,7 @@ import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calculateEstimate';
 import { generateEstimatePdf, downloadPdf } from '../../utils/generatePdf';
+import { generateFullScope } from '../../utils/autoGenerateScope';
 import { SHINGLE_TYPE_NAMES, DEFAULT_SERVICE_AGREEMENT_PLANS, FLAT_ROOF_MATERIAL_NAMES } from '../../data/defaultPricing';
 
 export function ReviewStep() {
@@ -531,6 +532,38 @@ export function ReviewStep() {
             </div>
           )}
         </div>
+      </Card>
+
+      {/* Scope of Work */}
+      <Card>
+        <CardHeader
+          title="Scope of Work"
+          subtitle="Included on the final estimate — auto-generated or custom"
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const autoScope = generateFullScope(estimate, calculation);
+                dispatch({ type: 'SET_SCOPE_OF_WORK', payload: autoScope });
+              }}
+            >
+              Auto-Generate
+            </Button>
+          }
+        />
+        <TextArea
+          value={estimate.scopeOfWork}
+          onChange={(e) => dispatch({ type: 'SET_SCOPE_OF_WORK', payload: e.target.value })}
+          placeholder="Describe the scope of work for this estimate. Click 'Auto-Generate' to create from the line items above, then edit as needed..."
+          rows={10}
+          className="font-mono text-sm"
+        />
+        {!estimate.scopeOfWork && (
+          <p className="text-xs text-amber-600 mt-2">
+            Tap "Auto-Generate" to create a scope of work from the estimate details above.
+          </p>
+        )}
       </Card>
 
       {/* PDF Actions */}

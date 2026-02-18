@@ -27,6 +27,7 @@ type EstimateAction =
   | { type: 'SET_AFTER_HOURS'; payload: boolean }
   | { type: 'SET_WARRANTY'; payload: string }
   | { type: 'SET_SERVICE_AGREEMENT'; payload: { include: boolean; planId?: string } }
+  | { type: 'SET_SCOPE_OF_WORK'; payload: string }
   | { type: 'SET_TECH_NOTES'; payload: string }
   | { type: 'ADD_PHOTO'; payload: EstimatePhoto }
   | { type: 'REMOVE_PHOTO'; payload: string }
@@ -81,6 +82,7 @@ function createEmptyEstimate(): Estimate {
     warrantyOptionId: 'standard',
     includeServiceAgreement: false,
     selectedServicePlanId: undefined,
+    scopeOfWork: '',
     photos: [],
     techNotes: '',
   };
@@ -251,6 +253,17 @@ function estimateReducer(state: EstimateState, action: EstimateAction): Estimate
           ...state.currentEstimate,
           includeServiceAgreement: action.payload.include,
           selectedServicePlanId: action.payload.planId,
+          updatedAt: new Date(),
+        },
+      };
+
+    case 'SET_SCOPE_OF_WORK':
+      if (!state.currentEstimate) return state;
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          scopeOfWork: action.payload,
           updatedAt: new Date(),
         },
       };

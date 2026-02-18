@@ -152,6 +152,9 @@ export interface Estimate {
   // Photos
   photos: EstimatePhoto[];
 
+  // Scope of Work
+  scopeOfWork: string;
+
   // Notes
   techNotes: string;
 
@@ -225,8 +228,15 @@ export interface CrewMember {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   role: 'lead' | 'technician' | 'helper';
   active: boolean;
+  specialties?: string[];
+  hourlyRate?: number;
+  certifications?: string[];
+  hireDate?: string;
+  notes?: string;
+  daysOff?: string[]; // ISO date strings for unavailable days
 }
 
 // Job schedule
@@ -247,6 +257,16 @@ export interface JobTimelineEvent {
   userName?: string;
   oldValue?: string;
   newValue?: string;
+}
+
+// Material checklist item for job
+export interface MaterialChecklistItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  checked: boolean;
+  notes?: string;
 }
 
 // Job completion data

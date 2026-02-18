@@ -1,5 +1,5 @@
-import type { ShingleType, ShingleDamage, QuickDamageTag } from '../types';
-import { LAYER_DEPTH_NAMES } from '../data/defaultPricing';
+import type { Estimate, EstimateCalculation, ShingleType, ShingleDamage, QuickDamageTag } from '../types';
+import { LAYER_DEPTH_NAMES, FLAT_ROOF_MATERIAL_NAMES } from '../data/defaultPricing';
 
 interface GenerateScopeParams {
   shingleType: ShingleType;
@@ -76,6 +76,96 @@ export function generateScope(params: GenerateScopeParams): string {
   }
 
   return scopeParts.join(' ');
+}
+
+/**
+ * Generates a comprehensive Scope of Work from a full estimate and calculation
+ * Handles both residential and commercial estimates
+ */
+export function generateFullScope(estimate: Estimate, calculation: EstimateCalculation): string {
+  const sections: string[] = [];
+  const isCommercial = estimate.roofType === 'commercial';
+
+  // Header
+  if (isCommercial && estimate.flatRoofDetails) {
+    const materialName = FLAT_ROOF_MATERIAL_NAMES[estimate.flatRoofDetails.material] || estimate.flatRoofDetails.material;
+    sections.push(
+      `SCOPE OF WORK — Commercial Flat Roof Repair\n` +
+      `Property: ${estimate.customer.address || 'TBD'}, ${estimate.customer.city || ''} ${estimate.customer.state || ''}\n` +
+      `Roof System: ${materialName} membrane, approximately ${estimate.flatRoofDetails.totalArea.toLocaleString()} sq ft\n` +
+      `Roof Age: ${estimate.flatRoofDetails.roofAge} years`
+    );
+  } else {
+    const shingleName = SHINGLE_SCOPE_NAMES[estimate.shingleType];
+    sections.push(
+      `SCOPE OF WORK — Residential Roof Repair\n` +
+      `Property: ${estimate.customer.address || 'TBD'}, ${estimate.customer.city || ''} ${estimate.customer.state || ''}\n` +
+      `Roof System: ${shingleName.charAt(0).toUpperCase() + shingleName.slice(1)}`
+    );
+  }
+
+  // Flat Roof Repairs (Commercial)
+  if (isCommercial && calculation.flatRoofLineItems.length > 0) {
+    const items = calculation.flatRoofLineItems.map(
+      (item) => `  - ${item.description}: ${item.quantity} ${item.unit}`
+    );
+    sections.push(`\nFlat Roof Repairs:\n${items.join('\n')}`);
+
+    // Condition-based notes
+    if (estimate.flatRoofDetails) {
+      const notes: string[] = [];
+      if (estimate.flatRoofDetails.membraneCondition === 'poor') {
+        notes.push('  - Membrane in poor condition — full coating recommended for long-term protection');
+      }
+      if (estimate.flatRoofDetails.seamCondition === 'poor') {
+        notes.push('  - Seam deterioration detected — re-welding and seam reinforcement required');
+      }
+      if (estimate.flatRoofDetails.drainageIssues) {
+        notes.push('  - Drainage deficiencies identified — drain repair/clearing required');
+      }
+      if (estimate.flatRoofDetails.pondingAreas > 0) {
+        notes.push(`  - ${estimate.flatRoofDetails.pondingAreas} ponding area(s) identified — tapered insulation or re-grading recommended`);
+      }
+      if (notes.length > 0) {
+        sections.push(`\nCondition Notes:\n${notes.join('\n')}`);
+      }
+    }
+  }
+
+  // Shingle Repairs (Residential)
+  if (!isCommercial && calculation.shingleLineItems.length > 0) {
+    const items = calculation.shingleLineItems.map(
+      (item) => `  - ${item.description}: ${item.quantity} ${item.unit}`
+    );
+    sections.push(`\nShingle Repairs:\n${items.join('\n')}`);
+  }
+
+  // Additional Repairs
+  const allAdditional = [...calculation.additionalRepairLineItems, ...calculation.customRepairLineItems];
+  if (allAdditional.length > 0) {
+    const items = allAdditional.map(
+      (item) => `  - ${item.description}: ${item.quantity} ${item.unit}`
+    );
+    sections.push(`\nAdditional Repairs:\n${items.join('\n')}`);
+  }
+
+  // Standard work items
+  sections.push(
+    `\nGeneral:\n` +
+    `  - Remove and dispose of all debris and old materials\n` +
+    `  - Protect landscaping and property during work\n` +
+    `  - Final walkthrough and inspection upon completion\n` +
+    `  - Clean all work areas and gutters of debris`
+  );
+
+  // Warranty
+  sections.push(
+    `\nWarranty:\n` +
+    `  - All work includes standard workmanship warranty\n` +
+    `  - Material manufacturer warranties apply as applicable`
+  );
+
+  return sections.join('\n');
 }
 
 /**

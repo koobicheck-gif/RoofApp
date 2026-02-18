@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { Estimate, EstimateCalculation, CompanyInfo } from '../types';
 import { formatCurrency, formatDate } from './calculateEstimate';
-import { SHINGLE_TYPE_NAMES } from '../data/defaultPricing';
+import { SHINGLE_TYPE_NAMES, FLAT_ROOF_MATERIAL_NAMES } from '../data/defaultPricing';
 
 interface GeneratePdfOptions {
   estimate: Estimate;
@@ -115,11 +115,16 @@ export async function generateEstimatePdf(options: GeneratePdfOptions): Promise<
 
   y += 5;
 
-  // Shingle type
+  // Roof type badge
+  const isCommercial = estimate.roofType === 'commercial';
   doc.setFillColor(243, 244, 246);
   doc.roundedRect(margin, y, contentWidth, 10, 2, 2, 'F');
   doc.setFontSize(10);
-  doc.text(`Shingle Type: ${SHINGLE_TYPE_NAMES[estimate.shingleType]}`, margin + 5, y + 7);
+  if (isCommercial && estimate.flatRoofDetails) {
+    doc.text(`Roof Type: Commercial - ${FLAT_ROOF_MATERIAL_NAMES[estimate.flatRoofDetails.material] || 'Flat Roof'}`, margin + 5, y + 7);
+  } else {
+    doc.text(`Shingle Type: ${SHINGLE_TYPE_NAMES[estimate.shingleType]}`, margin + 5, y + 7);
+  }
 
   y += 18;
 
@@ -127,6 +132,7 @@ export async function generateEstimatePdf(options: GeneratePdfOptions): Promise<
   // LINE ITEMS
   // ============================================================
   const hasShingleRepairs = calculation.shingleLineItems.length > 0;
+  const hasFlatRoofRepairs = calculation.flatRoofLineItems.length > 0;
   const hasAdditionalRepairs = calculation.additionalRepairLineItems.length > 0 || calculation.customRepairLineItems.length > 0;
 
   // Table header
@@ -203,6 +209,38 @@ export async function generateEstimatePdf(options: GeneratePdfOptions): Promise<
     y += 10;
   }
 
+  // Flat Roof Repairs (Commercial)
+  if (hasFlatRoofRepairs) {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primaryColor);
+    doc.text('FLAT ROOF REPAIRS', margin, y);
+    y += 6;
+
+    drawTableHeader();
+
+    calculation.flatRoofLineItems.forEach((item, index) => {
+      drawLineItem(
+        item.description,
+        `${item.quantity} ${item.unit}`,
+        item.material,
+        item.labor,
+        item.subtotal,
+        index % 2 === 1
+      );
+    });
+
+    // Subtotal
+    doc.setDrawColor(...lightGray);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...darkGray);
+    doc.text('Flat Roof Repairs Subtotal:', margin + 100, y);
+    doc.text(formatCurrency(calculation.flatRoofSubtotal), pageWidth - margin - 3, y, { align: 'right' });
+    y += 10;
+  }
+
   // Additional Repairs
   if (hasAdditionalRepairs) {
     doc.setFontSize(10);
@@ -274,6 +312,9 @@ export async function generateEstimatePdf(options: GeneratePdfOptions): Promise<
   if (calculation.warrantyFee > 0) {
     drawTotalLine('Extended Warranty:', calculation.warrantyFee);
   }
+  if (calculation.serviceAgreementFee > 0) {
+    drawTotalLine('Service Agreement:', calculation.serviceAgreementFee);
+  }
 
   y += 3;
   doc.setFillColor(...primaryColor);
@@ -284,6 +325,36 @@ export async function generateEstimatePdf(options: GeneratePdfOptions): Promise<
   doc.text('TOTAL:', margin + 100, y + 3);
   doc.text(formatCurrency(calculation.grandTotal), pageWidth - margin - 5, y + 3, { align: 'right' });
   y += 18;
+
+  // ============================================================
+  // SCOPE OF WORK
+  // ============================================================
+  if (estimate.scopeOfWork) {
+    if (y > pageHeight - 50) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primaryColor);
+    doc.text('SCOPE OF WORK', margin, y);
+    y += 6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...darkGray);
+    const scopeLines = doc.splitTextToSize(estimate.scopeOfWork, contentWidth - 5);
+    for (const line of scopeLines) {
+      if (y > pageHeight - 25) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin + 2, y);
+      y += 3.5;
+    }
+    y += 8;
+  }
 
   // ============================================================
   // PHOTOS (if any, up to 6)
