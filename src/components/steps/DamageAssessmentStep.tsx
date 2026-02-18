@@ -21,7 +21,11 @@ import type { LayerDepth, EstimatePhoto, AdditionalRepair, FlatRoofDetails } fro
 const LAYER_DEPTHS: LayerDepth[] = ['surface', 'one-layer', 'two-layer', 'three-layer'];
 const FIELD_MODE_KEY = 'roofapp_field_mode';
 
-export function DamageAssessmentStep() {
+interface DamageAssessmentStepProps {
+  onNext?: () => void;
+}
+
+export function DamageAssessmentStep({ onNext }: DamageAssessmentStepProps) {
   const { dispatch } = useEstimate();
   const estimate = useCurrentEstimate();
   const shinglePricing = useShinglePricing();
@@ -775,6 +779,8 @@ export function DamageAssessmentStep() {
           total={runningTotal}
           itemCount={itemCount}
           label="Shingle Subtotal"
+          onNext={onNext}
+          nextLabel="Next"
         />
       )}
     </div>

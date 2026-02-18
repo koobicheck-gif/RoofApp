@@ -92,9 +92,9 @@ export function EstimateWizard({ onComplete, onCancel }: EstimateWizardProps) {
       case 0:
         return <CustomerInfoStep />;
       case 1:
-        return <DamageAssessmentStep />;
+        return <DamageAssessmentStep onNext={nextStep} />;
       case 2:
-        return <AdditionalRepairsStep />;
+        return <AdditionalRepairsStep onNext={nextStep} />;
       case 3:
         return <SiteConditionsStep />;
       case 4:

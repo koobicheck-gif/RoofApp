@@ -12,7 +12,11 @@ const COMMERCIAL_UNIT_NAMES: Record<string, string> = {
   sq_ft: 'sq ft',
 };
 
-export function AdditionalRepairsStep() {
+interface AdditionalRepairsStepProps {
+  onNext?: () => void;
+}
+
+export function AdditionalRepairsStep({ onNext: _onNext }: AdditionalRepairsStepProps) {
   const { dispatch } = useEstimate();
   const estimate = useCurrentEstimate();
   const availableRepairs = useAdditionalRepairs();
