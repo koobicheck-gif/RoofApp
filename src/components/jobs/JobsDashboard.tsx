@@ -7,13 +7,14 @@ import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calcu
 import { ScheduleCalendar } from './ScheduleCalendar';
 import { JobDetailView } from './JobDetailView';
 import { CrewManager } from './CrewManager';
+import { RoutePlanner } from './RoutePlanner';
 import type { Estimate } from '../../types';
 
 interface JobsDashboardProps {
   onClose: () => void;
 }
 
-type ViewMode = 'list' | 'calendar' | 'crew';
+type ViewMode = 'list' | 'calendar' | 'crew' | 'route';
 type FilterStatus = 'all' | 'scheduled' | 'today' | 'this-week' | 'completed';
 
 export function JobsDashboard({ onClose }: JobsDashboardProps) {
@@ -160,7 +161,10 @@ export function JobsDashboard({ onClose }: JobsDashboardProps) {
               </div>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" onClick={() => setViewMode('list')}>
-                  List View
+                  List
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setViewMode('route')}>
+                  Route
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => setViewMode('crew')}>
                   Crew
@@ -208,6 +212,38 @@ export function JobsDashboard({ onClose }: JobsDashboardProps) {
     );
   }
 
+  if (viewMode === 'route') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-[#00224a] text-white">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h1 className="text-xl font-bold">Route Planner</h1>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setViewMode('list')}>
+                  Jobs
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setViewMode('calendar')}>
+                  Calendar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-4xl mx-auto px-4 py-6">
+          <RoutePlanner onSelectJob={(id) => setSelectedJobId(id)} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -223,6 +259,9 @@ export function JobsDashboard({ onClose }: JobsDashboardProps) {
               <h1 className="text-xl font-bold">Jobs & Scheduling</h1>
             </div>
             <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setViewMode('route')}>
+                Route
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => setViewMode('calendar')}>
                 Calendar
               </Button>
