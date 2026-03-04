@@ -5,6 +5,7 @@ import { usePricing } from '../context/PricingContext';
 import { calculateEstimate, formatCurrency, formatDate } from '../utils/calculateEstimate';
 import { SHINGLE_TYPE_NAMES } from '../data/defaultPricing';
 import { EstimatesMap } from './EstimatesMap';
+import { WeatherBanner } from './WeatherBanner';
 import type { Estimate } from '../types';
 
 const LOGO_URL = '/RoofApp/logo.png';
@@ -130,6 +131,9 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
         <div className="mb-4">
           <OfflineIndicator />
         </div>
+
+        {/* Weather Banner */}
+        <WeatherBanner />
 
         {/* Estimates Map */}
         <div className="mb-6">
