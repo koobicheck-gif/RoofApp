@@ -173,6 +173,12 @@ export interface Estimate {
   signedAt?: Date;
   signedByName?: string;
 
+  // GHL Integration
+  ghlContactId?: string;
+  ghlOpportunityId?: string;
+  ghlSyncedAt?: Date;
+  ghlSyncError?: string;
+
   // Tech info
   techId?: string;
   techName?: string;

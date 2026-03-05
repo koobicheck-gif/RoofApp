@@ -31,6 +31,7 @@ type EstimateAction =
   | { type: 'SET_TECH_NOTES'; payload: string }
   | { type: 'SET_CUSTOMER_SIGNATURE'; payload: { signature: string; signedByName: string } }
   | { type: 'CLEAR_CUSTOMER_SIGNATURE' }
+  | { type: 'SET_GHL_SYNC_RESULT'; payload: { contactId?: string; opportunityId?: string; error?: string } }
   | { type: 'ADD_PHOTO'; payload: EstimatePhoto }
   | { type: 'REMOVE_PHOTO'; payload: string }
   | { type: 'SAVE_ESTIMATE' }
@@ -310,6 +311,21 @@ function estimateReducer(state: EstimateState, action: EstimateAction): Estimate
           updatedAt: new Date(),
         },
       };
+
+    case 'SET_GHL_SYNC_RESULT': {
+      if (!state.currentEstimate) return state;
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          ghlContactId: action.payload.contactId,
+          ghlOpportunityId: action.payload.opportunityId,
+          ghlSyncedAt: action.payload.contactId ? new Date() : undefined,
+          ghlSyncError: action.payload.error,
+          updatedAt: new Date(),
+        },
+      };
+    }
 
     case 'ADD_PHOTO':
       if (!state.currentEstimate) return state;

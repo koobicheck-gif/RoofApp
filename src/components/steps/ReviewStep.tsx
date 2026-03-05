@@ -6,6 +6,7 @@ import { calculateEstimate, formatCurrency, formatDate } from '../../utils/calcu
 import { generateEstimatePdf, downloadPdf } from '../../utils/generatePdf';
 import { generateFullScope } from '../../utils/autoGenerateScope';
 import { SHINGLE_TYPE_NAMES, DEFAULT_SERVICE_AGREEMENT_PLANS, FLAT_ROOF_MATERIAL_NAMES } from '../../data/defaultPricing';
+import { useGHL } from '../../hooks/useGHL';
 
 export function ReviewStep() {
   const { dispatch } = useEstimate();
@@ -13,6 +14,8 @@ export function ReviewStep() {
   const { state: pricingState } = usePricing();
   const [viewMode, setViewMode] = useState<'detailed' | 'customer'>('detailed');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const { syncEstimateToGHL, isLoading: isGHLSyncing, isConfigured: isGHLConfigured } = useGHL();
+  const [ghlSyncStatus, setGHLSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
   const calculation = useMemo(() => {
     if (!estimate) return null;
@@ -118,11 +121,60 @@ export function ReviewStep() {
     dispatch({ type: 'CLEAR_CUSTOMER_SIGNATURE' });
   };
 
-  const saveSignature = () => {
+  const saveSignature = async () => {
     const canvas = canvasRef.current;
-    if (!canvas || !hasSignature) return;
+    if (!canvas || !hasSignature || !calculation) return;
     const dataUrl = canvas.toDataURL('image/png');
+
+    // 1. Save signature locally first (always succeeds)
     dispatch({ type: 'SET_CUSTOMER_SIGNATURE', payload: { signature: dataUrl, signedByName } });
+    dispatch({ type: 'SAVE_ESTIMATE' });
+
+    // 2. Sync to GHL if configured (non-blocking)
+    if (isGHLConfigured) {
+      setGHLSyncStatus('syncing');
+      try {
+        const result = await syncEstimateToGHL(estimate, calculation);
+        if (result.success) {
+          dispatch({
+            type: 'SET_GHL_SYNC_RESULT',
+            payload: { contactId: result.contactId, opportunityId: result.opportunityId }
+          });
+          dispatch({ type: 'SAVE_ESTIMATE' });
+          setGHLSyncStatus('success');
+        } else {
+          dispatch({ type: 'SET_GHL_SYNC_RESULT', payload: { error: result.error } });
+          setGHLSyncStatus('error');
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'GHL sync failed';
+        dispatch({ type: 'SET_GHL_SYNC_RESULT', payload: { error: errorMsg } });
+        setGHLSyncStatus('error');
+      }
+    }
+  };
+
+  const retryGHLSync = async () => {
+    if (!calculation) return;
+    setGHLSyncStatus('syncing');
+    try {
+      const result = await syncEstimateToGHL(estimate, calculation);
+      if (result.success) {
+        dispatch({
+          type: 'SET_GHL_SYNC_RESULT',
+          payload: { contactId: result.contactId, opportunityId: result.opportunityId }
+        });
+        dispatch({ type: 'SAVE_ESTIMATE' });
+        setGHLSyncStatus('success');
+      } else {
+        dispatch({ type: 'SET_GHL_SYNC_RESULT', payload: { error: result.error } });
+        setGHLSyncStatus('error');
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'GHL sync failed';
+      dispatch({ type: 'SET_GHL_SYNC_RESULT', payload: { error: errorMsg } });
+      setGHLSyncStatus('error');
+    }
   };
 
   const hasShingleRepairs = calculation.shingleLineItems.length > 0;
@@ -737,6 +789,56 @@ export function ReviewStep() {
 
           {!signedByName.trim() && hasSignature && (
             <p className="text-xs text-amber-600">Enter customer's printed name to save the signature.</p>
+          )}
+
+          {/* GHL Sync Status */}
+          {isGHLConfigured && estimate.customerSignature && (
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">GoHighLevel CRM</span>
+                {ghlSyncStatus === 'syncing' || isGHLSyncing ? (
+                  <span className="text-sm text-blue-600 flex items-center gap-1">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Syncing...
+                  </span>
+                ) : estimate.ghlContactId ? (
+                  <span className="text-sm text-green-600 flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Synced
+                  </span>
+                ) : estimate.ghlSyncError ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-red-600 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Failed
+                    </span>
+                    <button
+                      onClick={retryGHLSync}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={retryGHLSync}
+                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Sync Now
+                  </button>
+                )}
+              </div>
+              {estimate.ghlSyncError && (
+                <p className="text-xs text-red-500 mt-1">{estimate.ghlSyncError}</p>
+              )}
+            </div>
           )}
         </div>
       </Card>
