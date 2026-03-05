@@ -168,6 +168,11 @@ export interface Estimate {
     warrantyOptions: WarrantyOption[];
   };
 
+  // Approval signature
+  customerSignature?: string; // base64 data URL of customer's drawn signature
+  signedAt?: Date;
+  signedByName?: string;
+
   // Tech info
   techId?: string;
   techName?: string;

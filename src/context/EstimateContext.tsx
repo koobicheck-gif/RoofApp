@@ -29,6 +29,8 @@ type EstimateAction =
   | { type: 'SET_SERVICE_AGREEMENT'; payload: { include: boolean; planId?: string } }
   | { type: 'SET_SCOPE_OF_WORK'; payload: string }
   | { type: 'SET_TECH_NOTES'; payload: string }
+  | { type: 'SET_CUSTOMER_SIGNATURE'; payload: { signature: string; signedByName: string } }
+  | { type: 'CLEAR_CUSTOMER_SIGNATURE' }
   | { type: 'ADD_PHOTO'; payload: EstimatePhoto }
   | { type: 'REMOVE_PHOTO'; payload: string }
   | { type: 'SAVE_ESTIMATE' }
@@ -275,6 +277,36 @@ function estimateReducer(state: EstimateState, action: EstimateAction): Estimate
         currentEstimate: {
           ...state.currentEstimate,
           techNotes: action.payload,
+          updatedAt: new Date(),
+        },
+      };
+
+    case 'SET_CUSTOMER_SIGNATURE': {
+      if (!state.currentEstimate) return state;
+      const wasApproved = ['approved', 'scheduled', 'completed', 'invoiced'].includes(state.currentEstimate.status);
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          customerSignature: action.payload.signature,
+          signedByName: action.payload.signedByName,
+          signedAt: new Date(),
+          // Advance to approved if still draft or sent
+          status: wasApproved ? state.currentEstimate.status : 'approved',
+          updatedAt: new Date(),
+        },
+      };
+    }
+
+    case 'CLEAR_CUSTOMER_SIGNATURE':
+      if (!state.currentEstimate) return state;
+      return {
+        ...state,
+        currentEstimate: {
+          ...state.currentEstimate,
+          customerSignature: undefined,
+          signedByName: undefined,
+          signedAt: undefined,
           updatedAt: new Date(),
         },
       };

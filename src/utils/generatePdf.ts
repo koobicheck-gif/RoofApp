@@ -440,14 +440,69 @@ export async function generateEstimatePdf(options: GeneratePdfOptions): Promise<
 
   y += 8;
 
-  // Signature line
-  doc.setDrawColor(...darkGray);
-  doc.line(margin, y + 10, margin + 80, y + 10);
-  doc.line(margin + 100, y + 10, pageWidth - margin, y + 10);
+  // Approval / Signature section
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...primaryColor);
+  doc.text('CUSTOMER APPROVAL', margin, y);
+  y += 5;
 
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text('Customer Signature', margin, y + 15);
-  doc.text('Date', margin + 100, y + 15);
+  doc.setTextColor(...darkGray);
+  doc.text('By signing below, the customer approves this estimate and authorizes the work described above.', margin, y);
+  y += 8;
+
+  if (estimate.customerSignature && estimate.signedByName) {
+    // Render captured signature image
+    try {
+      doc.addImage(estimate.customerSignature, 'PNG', margin, y, 80, 20);
+    } catch {
+      doc.setDrawColor(...darkGray);
+      doc.line(margin, y + 18, margin + 80, y + 18);
+    }
+    doc.setDrawColor(...darkGray);
+    doc.line(margin + 100, y + 18, pageWidth - margin, y + 18);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...darkGray);
+    // Name under signature
+    doc.text(estimate.signedByName, margin, y + 23);
+    doc.setTextColor(...lightGray);
+    doc.text('Printed Name', margin, y + 27);
+
+    // Date
+    const signedDate = estimate.signedAt ? new Date(estimate.signedAt).toLocaleDateString() : '';
+    doc.setTextColor(...darkGray);
+    doc.text(signedDate, margin + 100, y + 23);
+    doc.setTextColor(...lightGray);
+    doc.text('Date Approved', margin + 100, y + 27);
+
+    y += 10;
+    // Approved badge
+    doc.setFillColor(220, 252, 231); // green-100
+    doc.roundedRect(margin, y + 20, 60, 10, 2, 2, 'F');
+    doc.setTextColor(22, 101, 52); // green-800
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('APPROVED', margin + 30, y + 26.5, { align: 'center' });
+    y += 10;
+  } else {
+    // Blank signature lines for physical signing
+    doc.setDrawColor(...darkGray);
+    doc.line(margin, y + 18, margin + 80, y + 18);
+    doc.line(margin + 100, y + 18, pageWidth - margin, y + 18);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...lightGray);
+    doc.text('Customer Signature', margin, y + 23);
+    doc.text('Date', margin + 100, y + 23);
+
+    y += 5;
+    doc.line(margin, y + 30, margin + 80, y + 30);
+    doc.setFontSize(8);
+    doc.text('Printed Name', margin, y + 35);
+  }
 
   // ============================================================
   // FOOTER

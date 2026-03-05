@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Card, CardHeader, Button, TextArea } from '../ui';
 import { useEstimate, useCurrentEstimate } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
@@ -41,6 +41,89 @@ export function ReviewStep() {
   const selectedServicePlan = estimate.includeServiceAgreement
     ? DEFAULT_SERVICE_AGREEMENT_PLANS.find((p) => p.id === estimate.selectedServicePlanId)
     : null;
+
+  // Signature pad state
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const [signedByName, setSignedByName] = useState(estimate.signedByName || '');
+  const [hasSignature, setHasSignature] = useState(!!estimate.customerSignature);
+
+  // Load existing signature onto canvas when component mounts
+  useEffect(() => {
+    if (estimate.customerSignature && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.src = estimate.customerSignature;
+    }
+  }, [estimate.customerSignature]);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    isDrawingRef.current = true;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getPos(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }, []);
+
+  const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const pos = getPos(e, canvas);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }, []);
+
+  const endDraw = useCallback(() => {
+    isDrawingRef.current = false;
+    setHasSignature(true);
+  }, []);
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+    dispatch({ type: 'CLEAR_CUSTOMER_SIGNATURE' });
+  };
+
+  const saveSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasSignature) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    dispatch({ type: 'SET_CUSTOMER_SIGNATURE', payload: { signature: dataUrl, signedByName } });
+  };
 
   const hasShingleRepairs = calculation.shingleLineItems.length > 0;
   const isCommercial = estimate.roofType === 'commercial';
@@ -564,6 +647,98 @@ export function ReviewStep() {
             Tap "Auto-Generate" to create a scope of work from the estimate details above.
           </p>
         )}
+      </Card>
+
+      {/* Customer Approval Signature */}
+      <Card>
+        <CardHeader
+          title="Customer Approval Signature"
+          subtitle="Customer signs below to approve this estimate"
+        />
+        <div className="space-y-4">
+          {estimate.customerSignature && estimate.signedAt ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-green-800">
+                  Signed by {estimate.signedByName || 'Customer'} on{' '}
+                  {new Date(estimate.signedAt).toLocaleDateString()}
+                </span>
+              </div>
+              <button
+                onClick={clearSignature}
+                className="text-xs text-red-600 hover:text-red-800 underline"
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Printed Name
+            </label>
+            <input
+              type="text"
+              value={signedByName}
+              onChange={(e) => setSignedByName(e.target.value)}
+              placeholder="Customer's full name"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Signature <span className="text-gray-400 font-normal">(draw below)</span>
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white relative">
+              <canvas
+                ref={canvasRef}
+                width={600}
+                height={150}
+                className="w-full h-36 touch-none cursor-crosshair"
+                onMouseDown={startDraw}
+                onMouseMove={draw}
+                onMouseUp={endDraw}
+                onMouseLeave={endDraw}
+                onTouchStart={startDraw}
+                onTouchMove={draw}
+                onTouchEnd={endDraw}
+              />
+              {!hasSignature && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-gray-300 text-sm">Sign here</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={clearSignature}
+              disabled={!hasSignature && !estimate.customerSignature}
+            >
+              Clear
+            </Button>
+            <Button
+              onClick={saveSignature}
+              disabled={!hasSignature || !signedByName.trim()}
+              fullWidth
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Save Signature & Approve
+            </Button>
+          </div>
+
+          {!signedByName.trim() && hasSignature && (
+            <p className="text-xs text-amber-600">Enter customer's printed name to save the signature.</p>
+          )}
+        </div>
       </Card>
 
       {/* PDF Actions */}
