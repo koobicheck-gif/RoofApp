@@ -446,3 +446,70 @@ export interface FlatRoofDetails {
   lastInspectionDate?: Date;
 }
 
+// ============================================
+// REFERRAL TRACKING SYSTEM
+// ============================================
+
+export type ReferralSourceType = 'customer' | 'partner' | 'employee' | 'other';
+export type ReferralStatus = 'pending' | 'estimate_created' | 'converted' | 'paid_out' | 'cancelled';
+export type PayoutStatus = 'pending' | 'approved' | 'paid';
+
+// Referral source - the person/entity who refers customers
+export interface ReferralSource {
+  id: string;
+  type: ReferralSourceType;
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  commissionRate: number;  // Percentage (e.g., 5 = 5%)
+  fixedBonus?: number;     // Fixed amount per referral
+  active: boolean;
+  createdAt: Date;
+  notes?: string;
+}
+
+// Referred customer info
+export interface ReferredCustomer {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}
+
+// Individual referral record
+export interface Referral {
+  id: string;
+  referralCode: string;  // e.g., "REF-260305-001"
+  sourceId: string;      // Links to ReferralSource
+  status: ReferralStatus;
+  referredCustomer: ReferredCustomer;
+  estimateId?: string;
+  createdAt: Date;
+  estimateCreatedAt?: Date;
+  convertedAt?: Date;
+  paidOutAt?: Date;
+  jobTotal?: number;
+  commissionAmount?: number;
+  notes?: string;
+}
+
+// Referral payout record
+export interface ReferralPayout {
+  id: string;
+  referralIds: string[];
+  sourceId: string;
+  totalAmount: number;
+  status: PayoutStatus;
+  paymentMethod?: 'check' | 'cash' | 'transfer' | 'credit';
+  checkNumber?: string;
+  paymentReference?: string;
+  createdAt: Date;
+  approvedAt?: Date;
+  approvedBy?: string;
+  paidAt?: Date;
+  paidBy?: string;
+  notes?: string;
+}
+

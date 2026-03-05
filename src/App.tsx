@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { PricingProvider } from './context/PricingContext';
 import { EstimateProvider, useEstimate } from './context/EstimateContext';
 import { JobsProvider } from './context/JobsContext';
+import { ReferralsProvider } from './context/ReferralsContext';
 import { EstimateList } from './components/EstimateList';
 import { EstimateWizard } from './components/EstimateWizard';
 import { AdminDashboard } from './components/admin';
 import { JobsDashboard } from './components/jobs';
+import { ReferralsDashboard } from './components/referrals';
 
-type View = 'list' | 'wizard' | 'admin' | 'jobs';
+type View = 'list' | 'wizard' | 'admin' | 'jobs' | 'referrals';
 
 function AppContent() {
   const [view, setView] = useState<View>('list');
@@ -47,6 +49,18 @@ function AppContent() {
     setView('list');
   };
 
+  const handleOpenReferrals = () => {
+    setView('referrals');
+  };
+
+  const handleCloseReferrals = () => {
+    setView('list');
+  };
+
+  if (view === 'referrals') {
+    return <ReferralsDashboard onClose={handleCloseReferrals} />;
+  }
+
   if (view === 'admin') {
     return <AdminDashboard onClose={handleCloseAdmin} />;
   }
@@ -70,6 +84,7 @@ function AppContent() {
       onSelectEstimate={handleSelectEstimate}
       onOpenAdmin={handleOpenAdmin}
       onOpenJobs={handleOpenJobs}
+      onOpenReferrals={handleOpenReferrals}
     />
   );
 }
@@ -79,7 +94,9 @@ function App() {
     <PricingProvider>
       <EstimateProvider>
         <JobsProvider>
-          <AppContent />
+          <ReferralsProvider>
+            <AppContent />
+          </ReferralsProvider>
         </JobsProvider>
       </EstimateProvider>
     </PricingProvider>
