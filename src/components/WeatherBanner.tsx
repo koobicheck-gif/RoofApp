@@ -15,6 +15,14 @@ interface WeatherData {
   cloudCover: number;
 }
 
+interface HourlyForecast {
+  time: string;
+  temperature: number;
+  weatherCode: number;
+  precipitationProbability: number;
+  windSpeed: number;
+}
+
 interface LocationData {
   lat: number;
   lng: number;
@@ -78,8 +86,18 @@ function getRoofingCondition(weather: WeatherData): { status: string; color: str
   return { status: 'Good', color: 'text-green-500', message: 'Ideal conditions for roofing' };
 }
 
+// Format hour for display
+function formatHour(isoString: string): string {
+  const date = new Date(isoString);
+  const hour = date.getHours();
+  if (hour === 0) return '12AM';
+  if (hour === 12) return '12PM';
+  return hour > 12 ? `${hour - 12}PM` : `${hour}AM`;
+}
+
 export function WeatherBanner() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [hourlyForecast, setHourlyForecast] = useState<HourlyForecast[]>([]);
   const [location, setLocation] = useState<LocationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,9 +135,9 @@ export function WeatherBanner() {
 
         setLocation(coords);
 
-        // Fetch weather from Open-Meteo API
+        // Fetch weather from Open-Meteo API (including hourly data)
         const response = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,is_day,uv_index&hourly=precipitation_probability&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto`
+          `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,is_day,uv_index&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_hours=12`
         );
 
         if (!response.ok) throw new Error('Weather fetch failed');
@@ -142,6 +160,27 @@ export function WeatherBanner() {
           visibility: 10, // Open-Meteo doesn't provide this in free tier
           cloudCover: current.cloud_cover
         });
+
+        // Parse hourly forecast (next 12 hours)
+        if (data.hourly) {
+          const hourly: HourlyForecast[] = [];
+          const times = data.hourly.time || [];
+          const temps = data.hourly.temperature_2m || [];
+          const codes = data.hourly.weather_code || [];
+          const precips = data.hourly.precipitation_probability || [];
+          const winds = data.hourly.wind_speed_10m || [];
+
+          for (let i = 0; i < Math.min(12, times.length); i++) {
+            hourly.push({
+              time: times[i],
+              temperature: Math.round(temps[i]),
+              weatherCode: codes[i],
+              precipitationProbability: precips[i],
+              windSpeed: Math.round(winds[i]),
+            });
+          }
+          setHourlyForecast(hourly);
+        }
 
         // Reverse geocode to get city name if not set
         if (!coords.city) {
@@ -279,6 +318,32 @@ export function WeatherBanner() {
                   </div>
                 </div>
               </div>
+
+              {/* Hourly Forecast */}
+              {hourlyForecast.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-white/70 text-sm mb-2">Hourly Forecast</p>
+                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                    {hourlyForecast.map((hour, idx) => {
+                      const hourWeather = WEATHER_CODES[hour.weatherCode] || { icon: '🌡️' };
+                      return (
+                        <div
+                          key={idx}
+                          className="flex-shrink-0 bg-white/5 rounded-xl p-2 text-center min-w-[70px]"
+                        >
+                          <p className="text-white/60 text-xs mb-1">{formatHour(hour.time)}</p>
+                          <span className="text-xl">{hourWeather.icon}</span>
+                          <p className="text-white font-semibold text-sm">{hour.temperature}°</p>
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            <span className="text-xs">💧</span>
+                            <span className="text-white/60 text-xs">{hour.precipitationProbability}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Detail Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
