@@ -26,9 +26,18 @@ interface PhotoData {
   url: string | null;
   condition: ConditionType;
   notes: string;
+  label: string;
 }
 
 type PhotoState = Record<string, PhotoData>;
+
+interface AdditionalPhoto {
+  id: string;
+  url: string;
+  condition: ConditionType;
+  notes: string;
+  label: string;
+}
 
 const CONDITION_OPTIONS: ConditionType[] = ['Good', 'Fair', 'Poor', 'N/A'];
 
@@ -68,19 +77,25 @@ export function InspectionReport() {
   const [overallCondition, setOverallCondition] = useState<ConditionType>('Good');
   const [recommendedAction, setRecommendedAction] = useState('');
 
-  // Photo state
+  // Photo state for fixed slots
   const [photos, setPhotos] = useState<PhotoState>(() => {
     const initial: PhotoState = {};
     PHOTO_SLOTS.forEach(slot => {
-      initial[slot.id] = { url: null, condition: 'N/A', notes: '' };
+      initial[slot.id] = { url: null, condition: 'N/A', notes: '', label: slot.label };
     });
     return initial;
   });
+
+  // Additional photos state
+  const [additionalPhotos, setAdditionalPhotos] = useState<AdditionalPhoto[]>([]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       Object.values(photos).forEach(photo => {
+        if (photo.url) URL.revokeObjectURL(photo.url);
+      });
+      additionalPhotos.forEach(photo => {
         if (photo.url) URL.revokeObjectURL(photo.url);
       });
     };
@@ -89,7 +104,6 @@ export function InspectionReport() {
   const handlePhotoUpload = useCallback((slotId: string, file: File) => {
     const url = URL.createObjectURL(file);
     setPhotos(prev => {
-      // Revoke old URL if exists
       if (prev[slotId]?.url) URL.revokeObjectURL(prev[slotId].url!);
       return {
         ...prev,
@@ -122,11 +136,46 @@ export function InspectionReport() {
     }));
   }, []);
 
+  // Additional photo handlers
+  const handleAddPhoto = useCallback((file: File) => {
+    const url = URL.createObjectURL(file);
+    const id = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    setAdditionalPhotos(prev => [
+      ...prev,
+      { id, url, condition: 'N/A', notes: '', label: `Additional Photo ${prev.length + 1}` },
+    ]);
+  }, []);
+
+  const handleAdditionalPhotoRemove = useCallback((id: string) => {
+    setAdditionalPhotos(prev => {
+      const photo = prev.find(p => p.id === id);
+      if (photo?.url) URL.revokeObjectURL(photo.url);
+      return prev.filter(p => p.id !== id);
+    });
+  }, []);
+
+  const handleAdditionalConditionChange = useCallback((id: string, condition: ConditionType) => {
+    setAdditionalPhotos(prev =>
+      prev.map(p => (p.id === id ? { ...p, condition } : p))
+    );
+  }, []);
+
+  const handleAdditionalNotesChange = useCallback((id: string, notes: string) => {
+    setAdditionalPhotos(prev =>
+      prev.map(p => (p.id === id ? { ...p, notes } : p))
+    );
+  }, []);
+
+  const handleAdditionalLabelChange = useCallback((id: string, label: string) => {
+    setAdditionalPhotos(prev =>
+      prev.map(p => (p.id === id ? { ...p, label } : p))
+    );
+  }, []);
+
   const handleDownloadPDF = async () => {
     if (!printRef.current) return;
     setIsGenerating(true);
 
-    // Hide download button
     if (downloadBtnRef.current) {
       downloadBtnRef.current.style.visibility = 'hidden';
     }
@@ -138,7 +187,7 @@ export function InspectionReport() {
       ]);
 
       const canvas = await html2canvas(printRef.current, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -149,19 +198,20 @@ export function InspectionReport() {
       const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageH = pdf.internal.pageSize.getHeight(); // 297mm
-      const imgW = 210;
+      const pageW = pdf.internal.pageSize.getWidth(); // 210mm
+      const imgW = pageW;
       const imgH = (canvas.height * imgW) / canvas.width;
 
       pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, '', 'FAST');
 
-      let left = imgH - pageH;
-      let pos = 0;
+      let heightLeft = imgH - pageH;
+      let position = 0;
 
-      while (left > 0) {
-        pos = left - imgH;
+      while (heightLeft > 0) {
+        position -= pageH;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, pos, imgW, imgH, '', 'FAST');
-        left -= pageH;
+        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH, '', 'FAST');
+        heightLeft -= pageH;
       }
 
       const safeName = (propertyAddress || 'report').replace(/[^a-z0-9]/gi, '-');
@@ -171,13 +221,24 @@ export function InspectionReport() {
       console.error('PDF generation failed:', error);
       alert('Failed to generate PDF. Please try again.');
     } finally {
-      // Restore download button
       if (downloadBtnRef.current) {
         downloadBtnRef.current.style.visibility = 'visible';
       }
       setIsGenerating(false);
     }
   };
+
+  // Combine all photos for print template
+  const allPhotosForPrint = [
+    ...PHOTO_SLOTS.map(slot => ({
+      id: slot.id,
+      ...photos[slot.id],
+    })),
+    ...additionalPhotos,
+  ];
+
+  // Only show photos with images in PDF
+  const photosWithImages = allPhotosForPrint.filter(p => p.url);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -335,7 +396,7 @@ export function InspectionReport() {
         {/* Photo Sections */}
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Inspection Photos</h2>
-          <p className="text-sm text-gray-500 mb-6">Tap each box to capture or upload a photo. All 15 slots will appear in the PDF.</p>
+          <p className="text-sm text-gray-500 mb-6">Tap each box to capture or upload a photo. Only photos with images will appear in the PDF.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {PHOTO_SLOTS.map(slot => (
@@ -418,6 +479,99 @@ export function InspectionReport() {
             ))}
           </div>
         </Card>
+
+        {/* Additional Photos Section */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Additional Photos</h2>
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleAddPhoto(file);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+              <span className="inline-flex items-center px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg transition-colors">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Photo
+              </span>
+            </label>
+          </div>
+
+          {additionalPhotos.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">No additional photos added. Click "Add Photo" to include more images in your report.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {additionalPhotos.map(photo => (
+                <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Photo */}
+                  <div className="relative">
+                    <div className="aspect-[4/3] bg-gray-100">
+                      <img
+                        src={photo.url}
+                        alt={photo.label}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleAdditionalPhotoRemove(photo.id)}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Photo info */}
+                  <div className="p-3 bg-white space-y-2">
+                    {/* Editable label */}
+                    <input
+                      type="text"
+                      value={photo.label}
+                      onChange={e => handleAdditionalLabelChange(photo.id, e.target.value)}
+                      placeholder="Photo label..."
+                      className="w-full px-2 py-1 text-xs font-medium text-gray-700 uppercase tracking-wide border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                    />
+
+                    {/* Condition selector */}
+                    <div className="flex flex-wrap gap-1">
+                      {CONDITION_OPTIONS.map(condition => (
+                        <button
+                          key={condition}
+                          onClick={() => handleAdditionalConditionChange(photo.id, condition)}
+                          className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
+                            photo.condition === condition
+                              ? `${CONDITION_COLORS[condition].tailwindBg} ${CONDITION_COLORS[condition].tailwindText}`
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          {condition}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Notes */}
+                    <input
+                      type="text"
+                      value={photo.notes}
+                      onChange={e => handleAdditionalNotesChange(photo.id, e.target.value)}
+                      placeholder="Add notes..."
+                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* HIDDEN PRINT TEMPLATE */}
@@ -430,7 +584,7 @@ export function InspectionReport() {
           width: '794px',
           backgroundColor: '#ffffff',
           fontFamily: "'Plus Jakarta Sans', sans-serif",
-          padding: '32px',
+          padding: '24px',
           boxSizing: 'border-box',
         }}
       >
@@ -439,11 +593,11 @@ export function InspectionReport() {
           <tbody>
             <tr>
               <td style={{ verticalAlign: 'top', width: '50%' }}>
-                <div style={{ fontSize: '18px', fontWeight: '700', color: '#0F172A', letterSpacing: '-0.01em' }}>
-                  Repair-First Roofing
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#00224a', letterSpacing: '-0.01em' }}>
+                  Roof Repair Partners
                 </div>
                 <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
-                  Professional Roof Inspection Services
+                  Oklahoma's Only Repair-Focused Roofing Company
                 </div>
               </td>
               <td style={{ verticalAlign: 'top', width: '50%', textAlign: 'right' }}>
@@ -476,7 +630,7 @@ export function InspectionReport() {
         </table>
 
         {/* Navy divider */}
-        <div style={{ height: '3px', backgroundColor: '#0F172A', marginBottom: '16px' }} />
+        <div style={{ height: '3px', backgroundColor: '#00224a', marginBottom: '16px' }} />
 
         {/* Property info banner */}
         <div style={{
@@ -484,7 +638,7 @@ export function InspectionReport() {
           borderLeft: '4px solid #0369A1',
           borderRadius: '4px',
           padding: '12px 16px',
-          marginBottom: '20px',
+          marginBottom: '16px',
         }}>
           <div style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A', marginBottom: '4px' }}>
             {propertyAddress || 'No address provided'}
@@ -494,103 +648,106 @@ export function InspectionReport() {
           </div>
         </div>
 
-        {/* Photo Grid - Table based, 2 columns */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-          <tbody>
-            {Array.from({ length: Math.ceil(PHOTO_SLOTS.length / 2) }).map((_, rowIndex) => (
-              <tr key={rowIndex}>
-                {[0, 1].map(colIndex => {
-                  const slotIndex = rowIndex * 2 + colIndex;
-                  const slot = PHOTO_SLOTS[slotIndex];
-                  if (!slot) return <td key={colIndex} style={{ width: '50%' }} />;
-                  const photo = photos[slot.id];
-                  const conditionStyle = CONDITION_COLORS[photo?.condition || 'N/A'];
+        {/* Photo Grid - Table based, 2 columns - Only photos with images */}
+        {photosWithImages.length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+            <tbody>
+              {Array.from({ length: Math.ceil(photosWithImages.length / 2) }).map((_, rowIndex) => (
+                <tr key={rowIndex}>
+                  {[0, 1].map(colIndex => {
+                    const photoIndex = rowIndex * 2 + colIndex;
+                    const photo = photosWithImages[photoIndex];
+                    if (!photo) return <td key={colIndex} style={{ width: '50%' }} />;
+                    const conditionStyle = CONDITION_COLORS[photo.condition || 'N/A'];
 
-                  return (
-                    <td key={slot.id} style={{
-                      width: '50%',
-                      padding: '8px',
-                      verticalAlign: 'top',
-                    }}>
-                      {/* Label */}
-                      <div style={{
-                        fontSize: '9px',
-                        fontWeight: '600',
-                        color: '#374151',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        marginBottom: '4px',
+                    return (
+                      <td key={photo.id} style={{
+                        width: '50%',
+                        padding: '6px',
+                        verticalAlign: 'top',
                       }}>
-                        {slot.label}
-                      </div>
+                        {/* Label */}
+                        <div style={{
+                          fontSize: '9px',
+                          fontWeight: '600',
+                          color: '#374151',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '4px',
+                        }}>
+                          {photo.label}
+                        </div>
 
-                      {/* Photo box - fixed dimensions */}
-                      <div style={{
-                        width: '216px',
-                        height: '150px',
-                        backgroundColor: '#F1F5F9',
-                        borderRadius: '4px',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        {photo?.url ? (
+                        {/* Photo box - optimized for PDF */}
+                        <div style={{
+                          width: '350px',
+                          height: '230px',
+                          backgroundColor: '#F1F5F9',
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                        }}>
                           <img
-                            src={photo.url}
-                            alt={slot.label}
+                            src={photo.url!}
+                            alt={photo.label}
                             style={{
-                              width: '216px',
-                              height: '150px',
+                              width: '350px',
+                              height: '230px',
                               objectFit: 'cover',
                             }}
                           />
-                        ) : (
-                          <div style={{
-                            fontSize: '10px',
-                            color: '#94A3B8',
-                            textAlign: 'center',
+                        </div>
+
+                        {/* Condition badge */}
+                        <div style={{ marginTop: '4px' }}>
+                          <span style={{
+                            backgroundColor: conditionStyle.bg,
+                            color: conditionStyle.color,
+                            borderRadius: '4px',
+                            padding: '2px 8px',
+                            fontSize: '9px',
+                            fontWeight: '600',
                           }}>
-                            No photo
+                            {photo.condition || 'N/A'}
+                          </span>
+                        </div>
+
+                        {/* Notes */}
+                        {photo.notes && (
+                          <div style={{
+                            fontSize: '8px',
+                            color: '#6B7280',
+                            fontStyle: 'italic',
+                            marginTop: '2px',
+                            maxWidth: '350px',
+                          }}>
+                            {photo.notes}
                           </div>
                         )}
-                      </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
-                      {/* Condition badge */}
-                      <div style={{ marginTop: '6px' }}>
-                        <span style={{
-                          backgroundColor: conditionStyle.bg,
-                          color: conditionStyle.color,
-                          borderRadius: '4px',
-                          padding: '2px 8px',
-                          fontSize: '9px',
-                          fontWeight: '600',
-                        }}>
-                          {photo?.condition || 'N/A'}
-                        </span>
-                      </div>
-
-                      {/* Notes */}
-                      {photo?.notes && (
-                        <div style={{
-                          fontSize: '8px',
-                          color: '#6B7280',
-                          fontStyle: 'italic',
-                          marginTop: '4px',
-                        }}>
-                          {photo.notes}
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {photosWithImages.length === 0 && (
+          <div style={{
+            padding: '24px',
+            textAlign: 'center',
+            color: '#94A3B8',
+            fontSize: '11px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '4px',
+            marginBottom: '16px',
+          }}>
+            No inspection photos included
+          </div>
+        )}
 
         {/* Summary Block */}
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '20px' }}>
           {/* Overall condition banner */}
           <div style={{
             backgroundColor: CONDITION_COLORS[overallCondition].bg,
@@ -629,7 +786,7 @@ export function InspectionReport() {
             backgroundColor: '#F8FAFC',
             borderRadius: '4px',
             padding: '12px 16px',
-            marginBottom: '24px',
+            marginBottom: '20px',
           }}>
             <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>
               Recommended Action
@@ -640,16 +797,16 @@ export function InspectionReport() {
           </div>
 
           {/* Signature line */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '32px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '24px' }}>
             <tbody>
               <tr>
                 <td style={{ width: '60%', paddingRight: '24px' }}>
-                  <div style={{ borderBottom: '1px solid #CBD5E1', marginBottom: '4px', paddingBottom: '24px' }} />
+                  <div style={{ borderBottom: '1px solid #CBD5E1', marginBottom: '4px', paddingBottom: '20px' }} />
                   <div style={{ fontSize: '9px', color: '#64748B' }}>Inspector Signature</div>
                   <div style={{ fontSize: '10px', color: '#0F172A', fontWeight: '600', marginTop: '2px' }}>{inspectorName || '—'}</div>
                 </td>
                 <td style={{ width: '40%' }}>
-                  <div style={{ borderBottom: '1px solid #CBD5E1', marginBottom: '4px', paddingBottom: '24px' }} />
+                  <div style={{ borderBottom: '1px solid #CBD5E1', marginBottom: '4px', paddingBottom: '20px' }} />
                   <div style={{ fontSize: '9px', color: '#64748B' }}>Date</div>
                   <div style={{ fontSize: '10px', color: '#0F172A', fontWeight: '600', marginTop: '2px' }}>{date}</div>
                 </td>
@@ -660,16 +817,16 @@ export function InspectionReport() {
 
         {/* Footer */}
         <div style={{
-          backgroundColor: '#0F172A',
+          backgroundColor: '#00224a',
           borderRadius: '4px',
           padding: '12px 16px',
-          marginTop: '24px',
+          marginTop: '20px',
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
                 <td style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '600' }}>
-                  Repair-First Roofing
+                  Roof Repair Partners
                 </td>
                 <td style={{ fontSize: '9px', color: '#64748B', textAlign: 'right' }}>
                   {reportNumber}
