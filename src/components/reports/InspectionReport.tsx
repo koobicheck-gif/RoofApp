@@ -420,7 +420,7 @@ export function InspectionReport() {
                         <img
                           src={photos[slot.id].url!}
                           alt={slot.label}
-                          className="w-full h-full object-cover"
+                          className="max-w-full max-h-full w-auto h-auto object-contain"
                         />
                       ) : (
                         <div className="text-center text-gray-400">
@@ -513,11 +513,11 @@ export function InspectionReport() {
                 <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Photo */}
                   <div className="relative">
-                    <div className="aspect-[4/3] bg-gray-100">
+                    <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
                       <img
                         src={photo.url}
                         alt={photo.label}
-                        className="w-full h-full object-cover"
+                        className="max-w-full max-h-full w-auto h-auto object-contain"
                       />
                     </div>
                     <button
@@ -678,21 +678,26 @@ export function InspectionReport() {
                           {photo.label}
                         </div>
 
-                        {/* Photo box - optimized for PDF */}
+                        {/* Photo box - auto-adjusts to maintain aspect ratio */}
                         <div style={{
                           width: '350px',
                           height: '230px',
                           backgroundColor: '#F1F5F9',
                           borderRadius: '4px',
                           overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}>
                           <img
                             src={photo.url!}
                             alt={photo.label}
                             style={{
-                              width: '350px',
-                              height: '230px',
-                              objectFit: 'cover',
+                              maxWidth: '350px',
+                              maxHeight: '230px',
+                              width: 'auto',
+                              height: 'auto',
+                              objectFit: 'contain',
                             }}
                           />
                         </div>
