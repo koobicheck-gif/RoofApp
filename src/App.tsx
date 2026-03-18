@@ -8,8 +8,9 @@ import { EstimateWizard } from './components/EstimateWizard';
 import { AdminDashboard } from './components/admin';
 import { JobsDashboard } from './components/jobs';
 import { ReferralsDashboard } from './components/referrals';
+import { InspectionReportDashboard } from './components/reports';
 
-type View = 'list' | 'wizard' | 'admin' | 'jobs' | 'referrals';
+type View = 'list' | 'wizard' | 'admin' | 'jobs' | 'referrals' | 'reports';
 
 function AppContent() {
   const [view, setView] = useState<View>('list');
@@ -57,6 +58,18 @@ function AppContent() {
     setView('list');
   };
 
+  const handleOpenReports = () => {
+    setView('reports');
+  };
+
+  const handleCloseReports = () => {
+    setView('list');
+  };
+
+  if (view === 'reports') {
+    return <InspectionReportDashboard onClose={handleCloseReports} />;
+  }
+
   if (view === 'referrals') {
     return <ReferralsDashboard onClose={handleCloseReferrals} />;
   }
@@ -85,6 +98,7 @@ function AppContent() {
       onOpenAdmin={handleOpenAdmin}
       onOpenJobs={handleOpenJobs}
       onOpenReferrals={handleOpenReferrals}
+      onOpenReports={handleOpenReports}
     />
   );
 }
