@@ -594,12 +594,22 @@ export function InspectionReport() {
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px' }}>
           <tbody>
             <tr>
-              <td style={{ verticalAlign: 'top', width: '50%' }}>
-                <div style={{ fontSize: '18px', fontWeight: '700', color: '#00224a', letterSpacing: '-0.01em' }}>
-                  Roof Repair Partners
-                </div>
-                <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
-                  Oklahoma's Only Repair-Focused Roofing Company
+              <td style={{ verticalAlign: 'middle', width: '50%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img
+                    src="/RoofApp/logo.png"
+                    alt="Roof Repair Partners"
+                    style={{ height: '56px', width: 'auto' }}
+                    crossOrigin="anonymous"
+                  />
+                  <div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: '#00224a', letterSpacing: '-0.01em' }}>
+                      Roof Repair Partners
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
+                      Oklahoma's Only Repair-Focused Roofing Company
+                    </div>
+                  </div>
                 </div>
               </td>
               <td style={{ verticalAlign: 'top', width: '50%', textAlign: 'right' }}>
