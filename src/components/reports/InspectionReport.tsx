@@ -415,12 +415,12 @@ export function InspectionReport() {
                       }}
                       className="hidden"
                     />
-                    <div className="aspect-[4/3] bg-gray-100 relative">
+                    <div className={`bg-gray-100 ${photos[slot.id]?.url ? '' : 'aspect-[4/3] relative'}`}>
                       {photos[slot.id]?.url ? (
                         <img
                           src={photos[slot.id].url!}
                           alt={slot.label}
-                          className="absolute inset-0 w-full h-full object-contain"
+                          className="w-full h-auto block"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-center text-gray-400">
@@ -515,11 +515,11 @@ export function InspectionReport() {
                 <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Photo */}
                   <div className="relative">
-                    <div className="aspect-[4/3] bg-gray-100 relative">
+                    <div className="bg-gray-100">
                       <img
                         src={photo.url}
                         alt={photo.label}
-                        className="absolute inset-0 w-full h-full object-contain"
+                        className="w-full h-auto block"
                       />
                     </div>
                     <button
