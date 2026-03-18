@@ -1,5 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Card } from '../ui';
+import type { CompanyInfo } from '../../types';
+
+const LOGO_STORAGE_KEY = 'roofapp_company_logo';
+const COMPANY_STORAGE_KEY = 'roofapp_company_info';
+
+const DEFAULT_COMPANY: CompanyInfo = {
+  name: 'Roof Repair Partners',
+  tagline: '',
+  phone: '',
+  email: '',
+  website: '',
+};
 
 // Photo slot definitions
 const PHOTO_SLOTS = [
@@ -88,6 +100,25 @@ export function InspectionReport() {
 
   // Additional photos state
   const [additionalPhotos, setAdditionalPhotos] = useState<AdditionalPhoto[]>([]);
+
+  // Company branding
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY);
+
+  // Load company branding on mount
+  useEffect(() => {
+    const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
+    if (storedLogo) setLogoUrl(storedLogo);
+
+    const storedCompany = localStorage.getItem(COMPANY_STORAGE_KEY);
+    if (storedCompany) {
+      try {
+        setCompanyInfo(JSON.parse(storedCompany));
+      } catch {
+        // Use default
+      }
+    }
+  }, []);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -596,19 +627,22 @@ export function InspectionReport() {
             <tr>
               <td style={{ verticalAlign: 'middle', width: '50%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img
-                    src="/RoofApp/logo.png"
-                    alt="Roof Repair Partners"
-                    style={{ height: '56px', width: 'auto' }}
-                    crossOrigin="anonymous"
-                  />
+                  {logoUrl && (
+                    <img
+                      src={logoUrl}
+                      alt={companyInfo.name}
+                      style={{ height: '56px', width: 'auto' }}
+                    />
+                  )}
                   <div>
                     <div style={{ fontSize: '18px', fontWeight: '700', color: '#00224a', letterSpacing: '-0.01em' }}>
-                      Roof Repair Partners
+                      {companyInfo.name}
                     </div>
-                    <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
-                      Oklahoma's Only Repair-Focused Roofing Company
-                    </div>
+                    {companyInfo.tagline && (
+                      <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
+                        {companyInfo.tagline}
+                      </div>
+                    )}
                   </div>
                 </div>
               </td>
@@ -715,17 +749,18 @@ export function InspectionReport() {
                         </div>
 
                         {/* Condition badge */}
-                        <div style={{ marginTop: '4px' }}>
-                          <span style={{
-                            backgroundColor: conditionStyle.bg,
-                            color: conditionStyle.color,
-                            borderRadius: '4px',
-                            padding: '2px 8px',
-                            fontSize: '9px',
-                            fontWeight: '600',
-                          }}>
-                            {photo.condition || 'N/A'}
-                          </span>
+                        <div style={{
+                          marginTop: '6px',
+                          display: 'inline-block',
+                          backgroundColor: conditionStyle.bg,
+                          color: conditionStyle.color,
+                          borderRadius: '4px',
+                          padding: '3px 10px',
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          lineHeight: '1.2',
+                        }}>
+                          {photo.condition || 'N/A'}
                         </div>
 
                         {/* Notes */}

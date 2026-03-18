@@ -232,6 +232,7 @@ export interface CompanyInfo {
   state?: string;
   zip?: string;
   license?: string;
+  logoUrl?: string;
 }
 
 // Crew member

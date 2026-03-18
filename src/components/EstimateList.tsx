@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Button, OfflineIndicator } from './ui';
 import { useAllEstimates, useEstimate } from '../context/EstimateContext';
 import { usePricing } from '../context/PricingContext';
@@ -6,9 +6,18 @@ import { calculateEstimate, formatCurrency, formatDate } from '../utils/calculat
 import { SHINGLE_TYPE_NAMES } from '../data/defaultPricing';
 import { EstimatesMap } from './EstimatesMap';
 import { WeatherBanner } from './WeatherBanner';
-import type { Estimate } from '../types';
+import type { Estimate, CompanyInfo } from '../types';
 
-const LOGO_URL = '/RoofApp/logo.png';
+const LOGO_STORAGE_KEY = 'roofapp_company_logo';
+const COMPANY_STORAGE_KEY = 'roofapp_company_info';
+
+const DEFAULT_COMPANY: CompanyInfo = {
+  name: 'Roof Repair Partners',
+  tagline: '',
+  phone: '',
+  email: '',
+  website: '',
+};
 
 interface EstimateListProps {
   onSelectEstimate: (id: string) => void;
@@ -23,6 +32,24 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
   const estimates = useAllEstimates();
   const { dispatch } = useEstimate();
   const { state: pricingState } = usePricing();
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY);
+
+  useEffect(() => {
+    // Load logo and company info from localStorage
+    const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
+    if (storedLogo) setLogoUrl(storedLogo);
+
+    const storedCompany = localStorage.getItem(COMPANY_STORAGE_KEY);
+    if (storedCompany) {
+      try {
+        setCompanyInfo(JSON.parse(storedCompany));
+      } catch {
+        // Use default
+      }
+    }
+  }, []);
 
   const getEstimateTotal = (estimate: Estimate): number => {
     const calculation = calculateEstimate({
@@ -82,20 +109,20 @@ export function EstimateList({ onSelectEstimate, onNewEstimate, onOpenAdmin, onO
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img
-                src={LOGO_URL}
-                alt="Roof Repair Partners"
-                className="h-14 w-auto"
-                onError={(e) => {
-                  // Hide image if it fails to load
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+              {logoUrl && (
+                <img
+                  src={logoUrl}
+                  alt={companyInfo.name}
+                  className="h-14 w-auto"
+                />
+              )}
               <div>
-                <h1 className="text-xl font-bold">Roof Repair Partners</h1>
-                <p className="text-white/70 text-xs">
-                  Oklahoma's Only Repair-Focused Roofing Company
-                </p>
+                <h1 className="text-xl font-bold">{companyInfo.name}</h1>
+                {companyInfo.tagline && (
+                  <p className="text-white/70 text-xs">
+                    {companyInfo.tagline}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-1">

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, Button } from '../ui';
 import type { CompanyInfo } from '../../types';
+
+const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
   name: 'Roof Repair Partners',
@@ -52,8 +54,34 @@ export function SettingsManager() {
     return DEFAULT_COMPANY_INFO;
   });
 
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+    return localStorage.getItem(LOGO_STORAGE_KEY);
+  });
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   const [hasChanges, setHasChanges] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setLogoUrl(dataUrl);
+      localStorage.setItem(LOGO_STORAGE_KEY, dataUrl);
+      setHasChanges(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleLogoRemove = () => {
+    setLogoUrl(null);
+    localStorage.removeItem(LOGO_STORAGE_KEY);
+    setHasChanges(true);
+  };
 
   useEffect(() => {
     setHasChanges(JSON.stringify(companyInfo) !== localStorage.getItem(STORAGE_KEY));
@@ -122,6 +150,63 @@ export function SettingsManager() {
         </div>
       </Card>
 
+      {/* Company Logo */}
+      <Card>
+        <CardHeader
+          title="Company Logo"
+          subtitle="Upload your logo to display in the app header and PDF reports"
+        />
+
+        <div className="flex items-start gap-6">
+          {/* Logo preview */}
+          <div className="flex-shrink-0">
+            {logoUrl ? (
+              <div className="relative">
+                <img
+                  src={logoUrl}
+                  alt="Company logo"
+                  className="h-24 w-auto max-w-[200px] object-contain bg-gray-50 rounded-lg border border-gray-200 p-2"
+                />
+                <button
+                  onClick={handleLogoRemove}
+                  className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className="h-24 w-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          {/* Upload button */}
+          <div className="flex-1 space-y-2">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
+            <Button
+              variant="secondary"
+              onClick={() => logoInputRef.current?.click()}
+            >
+              {logoUrl ? 'Change Logo' : 'Upload Logo'}
+            </Button>
+            <p className="text-xs text-gray-500">
+              Recommended: PNG or JPG, at least 200px wide
+            </p>
+          </div>
+        </div>
+      </Card>
+
       {/* Address */}
       <Card>
         <CardHeader
@@ -166,9 +251,20 @@ export function SettingsManager() {
 
         <div className="bg-[#00224a] text-white p-4 rounded-lg">
           <div className="flex justify-between items-start">
-            <div>
-              <div className="text-xl font-bold">{companyInfo.name}</div>
-              <div className="text-sm text-white/70">{companyInfo.tagline}</div>
+            <div className="flex items-center gap-3">
+              {logoUrl && (
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-12 w-auto object-contain bg-white/10 rounded p-1"
+                />
+              )}
+              <div>
+                <div className="text-xl font-bold">{companyInfo.name}</div>
+                {companyInfo.tagline && (
+                  <div className="text-sm text-white/70">{companyInfo.tagline}</div>
+                )}
+              </div>
             </div>
             <div className="text-right text-sm">
               <div>{companyInfo.phone}</div>
