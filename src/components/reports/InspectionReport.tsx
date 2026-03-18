@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Card, Button } from '../ui';
+import { Card } from '../ui';
 
 // Photo slot definitions
 const PHOTO_SLOTS = [
@@ -187,11 +187,11 @@ export function InspectionReport() {
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Roof Inspection Report</h1>
-        <Button
+        <button
           ref={downloadBtnRef}
           onClick={handleDownloadPDF}
           disabled={isGenerating}
-          className="bg-violet-600 hover:bg-violet-700 text-white"
+          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isGenerating ? (
             <>
@@ -209,7 +209,7 @@ export function InspectionReport() {
               Download PDF
             </>
           )}
-        </Button>
+        </button>
       </div>
 
       {/* Form Section */}
