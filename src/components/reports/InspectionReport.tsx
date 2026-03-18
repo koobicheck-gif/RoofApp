@@ -415,20 +415,22 @@ export function InspectionReport() {
                       }}
                       className="hidden"
                     />
-                    <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center relative">
+                    <div className="aspect-[4/3] bg-gray-100 relative">
                       {photos[slot.id]?.url ? (
                         <img
                           src={photos[slot.id].url!}
                           alt={slot.label}
-                          className="max-w-full max-h-full w-auto h-auto object-contain"
+                          className="absolute inset-0 w-full h-full object-contain"
                         />
                       ) : (
-                        <div className="text-center text-gray-400">
-                          <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span className="text-xs">Tap to add</span>
+                        <div className="absolute inset-0 flex items-center justify-center text-center text-gray-400">
+                          <div>
+                            <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="text-xs">Tap to add</span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -513,11 +515,11 @@ export function InspectionReport() {
                 <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Photo */}
                   <div className="relative">
-                    <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
+                    <div className="aspect-[4/3] bg-gray-100 relative">
                       <img
                         src={photo.url}
                         alt={photo.label}
-                        className="max-w-full max-h-full w-auto h-auto object-contain"
+                        className="absolute inset-0 w-full h-full object-contain"
                       />
                     </div>
                     <button
