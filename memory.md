@@ -35,3 +35,22 @@
 - Enhanced header with gradient icon, photo count indicator
 - Preview shows first 4 photos with "+X more photos in full PDF" indicator
 - Dynamic company name in PDF footer (was hardcoded "Roof Repair Partners")
+
+**Weather Banner - Live Radar**
+- Added collapsible "Live Radar" section in weather dropdown
+- Initially used RainViewer API for radar tiles
+- Changed to News 9 Oklahoma (KWTV) NextGen Live Radar iframe
+- Added "Open News 9 Radar" button as fallback (opens in new tab)
+- Shows KWTV Oklahoma City branding
+
+**Satellite Maps for Estimates & Job Tracking**
+- EstimatesMap: Switched from OpenStreetMap to Esri World Imagery satellite tiles
+- Added street/place labels overlay on satellite view
+- GoogleRouteMap (Route Planner): Changed from roadmap to hybrid view (satellite + labels)
+- Enabled map type control in Google Maps to allow switching views
+- Both maps now show aerial view of job sites for better roof/property assessment
+
+### Files Modified
+- `src/components/WeatherBanner.tsx` - Added News 9 radar iframe, removed RainViewer API
+- `src/components/EstimatesMap.tsx` - Esri satellite tiles + labels overlay
+- `src/components/jobs/GoogleRouteMap.tsx` - Hybrid satellite view, map type control
