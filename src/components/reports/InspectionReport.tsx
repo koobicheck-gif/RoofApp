@@ -95,6 +95,11 @@ export function InspectionReport() {
   const [isGenerating, setIsGenerating] = useState(false);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
 
+  // PDF Preview state
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pendingPdfDoc, setPendingPdfDoc] = useState<{ save: (filename: string) => void } | null>(null);
+
   // Form state
   const [reportNumber, setReportNumber] = useState(generateReportNumber);
   const [date, setDate] = useState(getTodayDate);
@@ -340,7 +345,7 @@ export function InspectionReport() {
     );
   }, []);
 
-  const handleDownloadPDF = async () => {
+  const handlePreviewPDF = async () => {
     if (!printRef.current) return;
     setIsGenerating(true);
 
@@ -382,9 +387,18 @@ export function InspectionReport() {
         heightLeft -= pageH;
       }
 
-      const safeName = (propertyAddress || 'report').replace(/[^a-z0-9]/gi, '-');
-      const safeDate = date.replace(/[^a-z0-9]/gi, '-');
-      pdf.save(`RRP-Inspection-${safeName}-${safeDate}.pdf`);
+      // Create blob URL for preview
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      // Clean up old blob URL if exists
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+
+      setPdfBlobUrl(blobUrl);
+      setPendingPdfDoc(pdf);
+      setShowPdfPreview(true);
     } catch (error) {
       console.error('PDF generation failed:', error);
       alert('Failed to generate PDF. Please try again.');
@@ -394,6 +408,24 @@ export function InspectionReport() {
       }
       setIsGenerating(false);
     }
+  };
+
+  const handleConfirmDownload = () => {
+    if (pendingPdfDoc) {
+      const safeName = (propertyAddress || 'report').replace(/[^a-z0-9]/gi, '-');
+      const safeDate = date.replace(/[^a-z0-9]/gi, '-');
+      pendingPdfDoc.save(`RRP-Inspection-${safeName}-${safeDate}.pdf`);
+    }
+    handleClosePdfPreview();
+  };
+
+  const handleClosePdfPreview = () => {
+    setShowPdfPreview(false);
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+    }
+    setPendingPdfDoc(null);
   };
 
   // Combine all photos for print template
@@ -415,13 +447,13 @@ export function InspectionReport() {
 
       {/* Drafts Modal */}
       {showDraftsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Saved Drafts</h2>
-                <p className="text-sm text-slate-500">{drafts.length} draft{drafts.length !== 1 ? 's' : ''} available</p>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">Saved Drafts</h2>
+                <p className="text-xs sm:text-sm text-slate-500">{drafts.length} draft{drafts.length !== 1 ? 's' : ''} available</p>
               </div>
               <button
                 onClick={() => setShowDraftsModal(false)}
@@ -491,10 +523,10 @@ export function InspectionReport() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-slate-50 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0">
               <button
                 onClick={startNewReport}
-                className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 font-medium rounded-lg transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 font-medium rounded-lg transition-colors text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -503,7 +535,7 @@ export function InspectionReport() {
               </button>
               <button
                 onClick={() => setShowDraftsModal(false)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors text-sm"
               >
                 Close
               </button>
@@ -512,90 +544,148 @@ export function InspectionReport() {
         </div>
       )}
 
-      {/* Professional Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+      {/* PDF Preview Modal */}
+      {showPdfPreview && pdfBlobUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">Preview PDF</h2>
+                <p className="text-xs sm:text-sm text-slate-500">Review before downloading</p>
+              </div>
+              <button
+                onClick={handleClosePdfPreview}
+                className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Inspection Report</h1>
-              <p className="text-sm text-slate-500">Create professional roof inspection reports</p>
+
+            {/* PDF Viewer */}
+            <div className="flex-1 overflow-hidden bg-slate-200 min-h-0">
+              <iframe
+                src={pdfBlobUrl}
+                className="w-full h-full min-h-[300px] sm:min-h-[400px] md:min-h-[500px]"
+                title="PDF Preview"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-white">
+              <button
+                onClick={handleClosePdfPreview}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors text-sm sm:text-base"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDownload}
+                className="px-4 sm:px-6 py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-500/25 text-sm sm:text-base"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download PDF
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Draft indicator */}
-            {currentDraftId && (
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="text-xs font-medium text-amber-700">Draft</span>
-              </div>
-            )}
+        </div>
+      )}
 
-            {/* Photo count */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
-              <div className={`w-2 h-2 rounded-full ${photosWithImages.length > 0 ? 'bg-green-500' : 'bg-amber-500'}`} />
-              <span className="text-sm text-slate-600">{photosWithImages.length} photo{photosWithImages.length !== 1 ? 's' : ''}</span>
+      {/* Professional Header */}
+      <div className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+        <div className="max-w-[1800px] mx-auto px-3 sm:px-6 py-3 sm:py-4">
+          {/* Mobile: Two rows, Desktop: Single row */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            {/* Left: Logo and title */}
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">Inspection Report</h1>
+                <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">Create professional roof inspection reports</p>
+              </div>
             </div>
 
-            {/* New Report */}
-            <button
-              onClick={startNewReport}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="text-sm">New</span>
-            </button>
-
-            {/* Load Drafts */}
-            <button
-              onClick={() => setShowDraftsModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg transition-colors relative"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-              </svg>
-              <span className="text-sm hidden sm:inline">Drafts</span>
-              {drafts.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {drafts.length}
-                </span>
+            {/* Right: Action buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              {/* Draft indicator - desktop only */}
+              {currentDraftId && (
+                <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="text-xs font-medium text-amber-700">Draft</span>
+                </div>
               )}
-            </button>
 
-            {/* Save Draft */}
-            <button
-              onClick={saveDraft}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
-            >
-              {draftSaved ? (
-                <>
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-green-600 hidden sm:inline">Saved!</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
-                  <span className="text-sm hidden sm:inline">Save Draft</span>
-                </>
-              )}
-            </button>
+              {/* Photo count - tablet+ */}
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
+                <div className={`w-2 h-2 rounded-full ${photosWithImages.length > 0 ? 'bg-green-500' : 'bg-amber-500'}`} />
+                <span className="text-sm text-slate-600">{photosWithImages.length} photo{photosWithImages.length !== 1 ? 's' : ''}</span>
+              </div>
+
+              {/* New Report - desktop only */}
+              <button
+                onClick={startNewReport}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="text-sm">New</span>
+              </button>
+
+              {/* Load Drafts */}
+              <button
+                onClick={() => setShowDraftsModal(true)}
+                className="flex items-center gap-1 sm:gap-1.5 p-2 sm:px-3 sm:py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg transition-colors relative"
+                title="View Drafts"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <span className="text-sm hidden sm:inline">Drafts</span>
+                {drafts.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {drafts.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Save Draft */}
+              <button
+                onClick={saveDraft}
+                className="flex items-center gap-1 sm:gap-1.5 p-2 sm:px-3 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+                title="Save Draft"
+              >
+                {draftSaved ? (
+                  <>
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm text-green-600 hidden sm:inline">Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span className="text-sm hidden sm:inline">Save</span>
+                  </>
+                )}
+              </button>
 
             {/* Download PDF */}
             <button
               ref={downloadBtnRef}
-              onClick={handleDownloadPDF}
+              onClick={handlePreviewPDF}
               disabled={isGenerating}
-              className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
+              className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl flex items-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 text-sm sm:text-base"
             >
               {isGenerating ? (
                 <>
@@ -603,16 +693,43 @@ export function InspectionReport() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span>Generating...</span>
+                  <span className="hidden xs:inline">Generating...</span>
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span>Download PDF</span>
+                  <span className="hidden xs:inline">Download</span>
+                  <span className="xs:hidden">PDF</span>
                 </>
               )}
+            </button>
+            </div>
+          </div>
+
+          {/* Mobile-only: Photo count and draft indicator */}
+          <div className="flex items-center justify-between mt-2 sm:hidden">
+            <div className="flex items-center gap-2">
+              {currentDraftId && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-md">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  <span className="text-[10px] font-medium text-amber-700">Draft</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-md">
+                <div className={`w-1.5 h-1.5 rounded-full ${photosWithImages.length > 0 ? 'bg-green-500' : 'bg-amber-500'}`} />
+                <span className="text-xs text-slate-600">{photosWithImages.length} photo{photosWithImages.length !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <button
+              onClick={startNewReport}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-md transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Report
             </button>
           </div>
         </div>
@@ -622,47 +739,47 @@ export function InspectionReport() {
       <div className="flex min-h-[calc(100vh-73px)]">
         {/* Left: Form Section */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+          <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Report Info */}
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Report Information</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Report Information</h2>
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Report #</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Report #</label>
               <input
                 type="text"
                 value={reportNumber}
                 readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Inspector Name</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Inspector</label>
               <input
                 type="text"
                 value={inspectorName}
                 onChange={e => setInspectorName(e.target.value)}
-                placeholder="Enter inspector name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                placeholder="Name"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Phone</label>
               <input
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="(xxx) xxx-xxxx"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
           </div>
@@ -670,37 +787,37 @@ export function InspectionReport() {
 
         {/* Property Info */}
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Property Information</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Property Address</label>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Property Information</h2>
+          <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
+            <div className="col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Property Address</label>
               <input
                 type="text"
                 value={propertyAddress}
                 onChange={e => setPropertyAddress(e.target.value)}
-                placeholder="Enter full property address"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                placeholder="Full address"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Client Name</label>
               <input
                 type="text"
                 value={clientName}
                 onChange={e => setClientName(e.target.value)}
-                placeholder="Enter client name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                placeholder="Client name"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Roof Age (years)</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Roof Age (years)</label>
               <input
                 type="number"
                 value={roofAge}
                 onChange={e => setRoofAge(e.target.value)}
-                placeholder="Enter estimated roof age"
+                placeholder="Age"
                 min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
           </div>
@@ -708,16 +825,16 @@ export function InspectionReport() {
 
         {/* Overall Assessment */}
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Overall Assessment</h2>
-          <div className="space-y-4">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Overall Assessment</h2>
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Overall Condition</label>
-              <div className="flex flex-wrap gap-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Overall Condition</label>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {(['Good', 'Fair', 'Poor'] as ConditionType[]).map(condition => (
                   <button
                     key={condition}
                     onClick={() => setOverallCondition(condition)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm font-medium transition-all ${
                       overallCondition === condition
                         ? `${CONDITION_COLORS[condition].tailwindBg} ${CONDITION_COLORS[condition].tailwindText} ring-2 ring-offset-2 ring-current`
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -729,13 +846,13 @@ export function InspectionReport() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Recommended Action</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Recommended Action</label>
               <textarea
                 value={recommendedAction}
                 onChange={e => setRecommendedAction(e.target.value)}
                 placeholder="Enter recommended repairs or actions..."
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none"
+                rows={3}
+                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none"
               />
             </div>
           </div>
@@ -743,10 +860,10 @@ export function InspectionReport() {
 
         {/* Photo Sections */}
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Inspection Photos</h2>
-          <p className="text-sm text-gray-500 mb-6">Tap each box to capture or upload a photo. Only photos with images will appear in the PDF.</p>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-4">Inspection Photos</h2>
+          <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6">Tap each box to capture or upload a photo. Only photos with images will appear in the PDF.</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
             {PHOTO_SLOTS.map(slot => (
               <div key={slot.id} className="border border-gray-200 rounded-lg overflow-hidden">
                 {/* Photo upload area */}
@@ -796,16 +913,16 @@ export function InspectionReport() {
                 </div>
 
                 {/* Slot info */}
-                <div className="p-3 bg-white">
-                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{slot.label}</div>
+                <div className="p-2 sm:p-3 bg-white">
+                  <div className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 sm:mb-2 truncate">{slot.label}</div>
 
                   {/* Condition selector */}
-                  <div className="flex flex-wrap gap-1 mb-2">
+                  <div className="flex flex-wrap gap-0.5 sm:gap-1 mb-1.5 sm:mb-2">
                     {CONDITION_OPTIONS.map(condition => (
                       <button
                         key={condition}
                         onClick={() => handleConditionChange(slot.id, condition)}
-                        className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
+                        className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                           photos[slot.id]?.condition === condition
                             ? `${CONDITION_COLORS[condition].tailwindBg} ${CONDITION_COLORS[condition].tailwindText}`
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -821,8 +938,8 @@ export function InspectionReport() {
                     type="text"
                     value={photos[slot.id]?.notes || ''}
                     onChange={e => handleNotesChange(slot.id, e.target.value)}
-                    placeholder="Add notes..."
-                    className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                    placeholder="Notes..."
+                    className="w-full px-2 py-1 text-xs sm:text-sm border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
                   />
                 </div>
               </div>
@@ -832,8 +949,8 @@ export function InspectionReport() {
 
         {/* Additional Photos Section */}
         <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Additional Photos</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Additional Photos</h2>
             <label className="cursor-pointer">
               <input
                 type="file"
@@ -846,19 +963,20 @@ export function InspectionReport() {
                 }}
                 className="hidden"
               />
-              <span className="inline-flex items-center px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg transition-colors">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <svg className="w-4 h-4 mr-1.5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Add Photo
+                <span className="hidden xs:inline">Add Photo</span>
+                <span className="xs:hidden">Add</span>
               </span>
             </label>
           </div>
 
           {additionalPhotos.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">No additional photos added. Click "Add Photo" to include more images in your report.</p>
+            <p className="text-xs sm:text-sm text-gray-500 text-center py-6 sm:py-8">No additional photos added. Tap "Add" to include more images.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
               {additionalPhotos.map(photo => (
                 <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Photo */}
@@ -881,23 +999,23 @@ export function InspectionReport() {
                   </div>
 
                   {/* Photo info */}
-                  <div className="p-3 bg-white space-y-2">
+                  <div className="p-2 sm:p-3 bg-white space-y-1.5 sm:space-y-2">
                     {/* Editable label */}
                     <input
                       type="text"
                       value={photo.label}
                       onChange={e => handleAdditionalLabelChange(photo.id, e.target.value)}
-                      placeholder="Photo label..."
-                      className="w-full px-2 py-1 text-xs font-medium text-gray-700 uppercase tracking-wide border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                      placeholder="Label..."
+                      className="w-full px-2 py-1 text-[10px] sm:text-xs font-medium text-gray-700 uppercase tracking-wide border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
                     />
 
                     {/* Condition selector */}
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-0.5 sm:gap-1">
                       {CONDITION_OPTIONS.map(condition => (
                         <button
                           key={condition}
                           onClick={() => handleAdditionalConditionChange(photo.id, condition)}
-                          className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
+                          className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                             photo.condition === condition
                               ? `${CONDITION_COLORS[condition].tailwindBg} ${CONDITION_COLORS[condition].tailwindText}`
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -913,8 +1031,8 @@ export function InspectionReport() {
                       type="text"
                       value={photo.notes}
                       onChange={e => handleAdditionalNotesChange(photo.id, e.target.value)}
-                      placeholder="Add notes..."
-                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                      placeholder="Notes..."
+                      className="w-full px-2 py-1 text-xs sm:text-sm border border-gray-200 rounded focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
                     />
                   </div>
                 </div>
