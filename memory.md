@@ -1,0 +1,27 @@
+# Development Notes
+
+## 2026-03-19
+
+### Changes Made
+
+**Logo Upload in Settings**
+- Added `logoUrl` field to `CompanyInfo` type
+- Created logo upload UI in Settings with preview and remove functionality
+- Logo stored in localStorage as base64 data URL
+- Logo now displays in app header and PDF reports dynamically
+
+**Removed Hardcoded Tagline**
+- Removed "Oklahoma's Only Repair-Focused Roofing Company" from hardcoded locations
+- Tagline is now optional and configurable in Settings
+- If tagline is empty, it won't render in header/PDF
+
+**PDF Badge Formatting Fixes**
+- Fixed "Overall Condition" badge (Good/Fair/Poor) - changed from `span` to `div` with `display: inline-block` and proper `verticalAlign: 'middle'`
+- Fixed photo condition badges - increased padding, font size, and added `lineHeight` for better rendering
+- Key insight: `span` elements with inline styles don't render well in html2canvas; use `div` with `inline-block` instead
+
+### Files Modified
+- `src/types/index.ts` - Added `logoUrl?: string` to CompanyInfo
+- `src/components/admin/SettingsManager.tsx` - Added logo upload/remove UI
+- `src/components/EstimateList.tsx` - Dynamic logo and company info from localStorage
+- `src/components/reports/InspectionReport.tsx` - Dynamic logo, fixed badge formatting
