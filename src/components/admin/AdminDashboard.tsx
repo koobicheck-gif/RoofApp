@@ -4,9 +4,10 @@ type AdminTab = 'pricing' | 'repairs' | 'estimates' | 'reports' | 'settings';
 
 interface AdminDashboardProps {
   onClose: () => void;
+  onOpenInspectionReport?: () => void;
 }
 
-export function AdminDashboard({ onClose }: AdminDashboardProps) {
+export function AdminDashboard({ onClose, onOpenInspectionReport }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('pricing');
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
@@ -105,7 +106,7 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
         {activeTab === 'pricing' && <PricingManager />}
         {activeTab === 'repairs' && <RepairsManager />}
         {activeTab === 'estimates' && <EstimatesManager />}
-        {activeTab === 'reports' && <ReportsView />}
+        {activeTab === 'reports' && <ReportsView onOpenInspectionReport={onOpenInspectionReport} />}
         {activeTab === 'settings' && <SettingsManager />}
       </main>
     </div>

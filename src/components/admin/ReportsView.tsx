@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card } from '../ui';
 import { useAllEstimates } from '../../context/EstimateContext';
 import { usePricing } from '../../context/PricingContext';
@@ -6,9 +6,57 @@ import { calculateEstimate, formatCurrency } from '../../utils/calculateEstimate
 import { SHINGLE_TYPE_NAMES } from '../../data/defaultPricing';
 import type { Estimate, ShingleType } from '../../types';
 
-export function ReportsView() {
+const DRAFTS_STORAGE_KEY = 'roofapp_report_drafts';
+
+interface ReportDraft {
+  id: string;
+  savedAt: string;
+  reportNumber: string;
+  date: string;
+  propertyAddress: string;
+  clientName: string;
+  inspectorName: string;
+  phone: string;
+  roofAge: string;
+  overallCondition: string;
+  recommendedAction: string;
+}
+
+interface ReportsViewProps {
+  onOpenInspectionReport?: () => void;
+}
+
+export function ReportsView({ onOpenInspectionReport }: ReportsViewProps) {
   const estimates = useAllEstimates();
   const { state: pricingState } = usePricing();
+  const [drafts, setDrafts] = useState<ReportDraft[]>([]);
+
+  // Load drafts
+  useEffect(() => {
+    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (stored) {
+      try {
+        setDrafts(JSON.parse(stored));
+      } catch {
+        setDrafts([]);
+      }
+    }
+  }, []);
+
+  const deleteDraft = (draftId: string) => {
+    if (!confirm('Delete this draft?')) return;
+    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (stored) {
+      try {
+        const existingDrafts: ReportDraft[] = JSON.parse(stored);
+        const filtered = existingDrafts.filter(d => d.id !== draftId);
+        localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(filtered));
+        setDrafts(filtered);
+      } catch {
+        // Ignore
+      }
+    }
+  };
 
   const getEstimateTotal = (estimate: Estimate): number => {
     const calculation = calculateEstimate({
@@ -278,6 +326,102 @@ export function ReportsView() {
           </div>
         </Card>
       </div>
+
+      {/* Inspection Report Drafts */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-gray-900">Inspection Report Drafts</h3>
+            <p className="text-sm text-gray-500">Saved PDF inspection reports</p>
+          </div>
+          {onOpenInspectionReport && (
+            <button
+              onClick={onOpenInspectionReport}
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Report
+            </button>
+          )}
+        </div>
+
+        {drafts.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-gray-500">No saved drafts</p>
+            <p className="text-sm text-gray-400 mt-1">Create an inspection report and save it as a draft</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Report #</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Condition</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Saved</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {drafts.map(draft => (
+                  <tr key={draft.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="font-medium text-gray-900 truncate max-w-[200px]">
+                        {draft.propertyAddress || 'No address'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      {draft.clientName || '—'}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-sm font-mono text-gray-500">{draft.reportNumber}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        draft.overallCondition === 'Good' ? 'bg-green-100 text-green-800' :
+                        draft.overallCondition === 'Fair' ? 'bg-amber-100 text-amber-800' :
+                        draft.overallCondition === 'Poor' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {draft.overallCondition}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {new Date(draft.savedAt).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {onOpenInspectionReport && (
+                          <button
+                            onClick={onOpenInspectionReport}
+                            className="px-3 py-1.5 text-sm font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors"
+                          >
+                            Open
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteDraft(draft.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

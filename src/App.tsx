@@ -75,7 +75,7 @@ function AppContent() {
   }
 
   if (view === 'admin') {
-    return <AdminDashboard onClose={handleCloseAdmin} />;
+    return <AdminDashboard onClose={handleCloseAdmin} onOpenInspectionReport={handleOpenReports} />;
   }
 
   if (view === 'jobs') {
