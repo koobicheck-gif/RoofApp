@@ -811,17 +811,20 @@ export function InspectionReport() {
               <tbody>
                 <tr>
                   <td style={{ verticalAlign: 'middle' }}>
-                    <span style={{ fontSize: '10px', color: '#64748B', marginRight: '8px' }}>Overall Condition:</span>
-                    <span style={{
+                    <span style={{ fontSize: '10px', color: '#64748B', marginRight: '8px', verticalAlign: 'middle' }}>Overall Condition:</span>
+                    <div style={{
+                      display: 'inline-block',
                       backgroundColor: CONDITION_COLORS[overallCondition].color,
                       color: '#ffffff',
                       borderRadius: '4px',
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      fontWeight: '700',
+                      padding: '5px 14px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      lineHeight: '1',
+                      verticalAlign: 'middle',
                     }}>
                       {overallCondition}
-                    </span>
+                    </div>
                   </td>
                   <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
                     <span style={{ fontSize: '10px', color: '#64748B' }}>
