@@ -25,3 +25,13 @@
 - `src/components/admin/SettingsManager.tsx` - Added logo upload/remove UI
 - `src/components/EstimateList.tsx` - Dynamic logo and company info from localStorage
 - `src/components/reports/InspectionReport.tsx` - Dynamic logo, fixed badge formatting
+
+**Reports Page Pro UI/UX**
+- Renamed "Owner Name" to "Client Name" throughout form and PDF
+- Added professional split-screen layout:
+  - Left side: scrollable form section
+  - Right side: sticky live preview panel (desktop only, lg+ breakpoint)
+- Live preview shows scaled (58%) PDF that updates in real-time as you type
+- Enhanced header with gradient icon, photo count indicator
+- Preview shows first 4 photos with "+X more photos in full PDF" indicator
+- Dynamic company name in PDF footer (was hardcoded "Roof Repair Partners")
