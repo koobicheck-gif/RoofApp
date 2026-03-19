@@ -82,7 +82,7 @@ export function InspectionReport() {
   const [reportNumber] = useState(generateReportNumber);
   const [date, setDate] = useState(getTodayDate);
   const [propertyAddress, setPropertyAddress] = useState('');
-  const [ownerName, setOwnerName] = useState('');
+  const [clientName, setClientName] = useState('');
   const [inspectorName, setInspectorName] = useState('');
   const [phone, setPhone] = useState('');
   const [roofAge, setRoofAge] = useState('');
@@ -272,40 +272,61 @@ export function InspectionReport() {
   const photosWithImages = allPhotosForPrint.filter(p => p.url);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-slate-50">
       {/* Font import */}
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');`}</style>
 
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">Roof Inspection Report</h1>
-        <button
-          ref={downloadBtnRef}
-          onClick={handleDownloadPDF}
-          disabled={isGenerating}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isGenerating ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      {/* Professional Header */}
+      <div className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+        <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Generating...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download PDF
-            </>
-          )}
-        </button>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Inspection Report</h1>
+              <p className="text-sm text-slate-500">Create professional roof inspection reports</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
+              <div className={`w-2 h-2 rounded-full ${photosWithImages.length > 0 ? 'bg-green-500' : 'bg-amber-500'}`} />
+              <span className="text-sm text-slate-600">{photosWithImages.length} photo{photosWithImages.length !== 1 ? 's' : ''}</span>
+            </div>
+            <button
+              ref={downloadBtnRef}
+              onClick={handleDownloadPDF}
+              disabled={isGenerating}
+              className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
+            >
+              {isGenerating ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Download PDF</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Form Section */}
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      {/* Split Layout: Form + Live Preview */}
+      <div className="flex min-h-[calc(100vh-73px)]">
+        {/* Left: Form Section */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
         {/* Report Info */}
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Report Information</h2>
@@ -366,12 +387,12 @@ export function InspectionReport() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
               <input
                 type="text"
-                value={ownerName}
-                onChange={e => setOwnerName(e.target.value)}
-                placeholder="Enter property owner name"
+                value={clientName}
+                onChange={e => setClientName(e.target.value)}
+                placeholder="Enter client name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
             </div>
@@ -605,6 +626,288 @@ export function InspectionReport() {
             </div>
           )}
         </Card>
+          </div>
+        </div>
+
+        {/* Right: Live Preview Panel */}
+        <div className="hidden lg:block w-[500px] xl:w-[560px] border-l border-slate-200 bg-slate-100 sticky top-[73px] h-[calc(100vh-73px)] overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span className="text-sm font-semibold text-slate-700">Live Preview</span>
+              </div>
+              <span className="text-xs text-slate-400">Updates in real-time</span>
+            </div>
+          </div>
+          <div className="overflow-y-auto h-[calc(100%-57px)] p-4">
+            <div
+              className="bg-white rounded-lg shadow-xl shadow-slate-200/50 overflow-hidden"
+              style={{
+                transform: 'scale(0.58)',
+                transformOrigin: 'top left',
+                width: '794px',
+                marginBottom: '-300px'
+              }}
+            >
+              {/* Live Preview Content - mirrors the print template */}
+              <div style={{
+                width: '794px',
+                backgroundColor: '#ffffff',
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                padding: '24px',
+                boxSizing: 'border-box',
+              }}>
+                {/* Header */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ verticalAlign: 'middle', width: '50%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {logoUrl && (
+                            <img
+                              src={logoUrl}
+                              alt={companyInfo.name}
+                              style={{ height: '56px', width: 'auto' }}
+                            />
+                          )}
+                          <div>
+                            <div style={{ fontSize: '18px', fontWeight: '700', color: '#00224a', letterSpacing: '-0.01em' }}>
+                              {companyInfo.name}
+                            </div>
+                            {companyInfo.tagline && (
+                              <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
+                                {companyInfo.tagline}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: 'top', width: '50%', textAlign: 'right' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#0369A1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                          Roof Inspection Report
+                        </div>
+                        <table style={{ marginLeft: 'auto', borderCollapse: 'collapse', fontSize: '10px' }}>
+                          <tbody>
+                            <tr>
+                              <td style={{ padding: '2px 8px', textAlign: 'right', color: '#64748B' }}>Report #:</td>
+                              <td style={{ padding: '2px 8px', fontWeight: '600', color: '#0F172A' }}>{reportNumber}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '2px 8px', textAlign: 'right', color: '#64748B' }}>Date:</td>
+                              <td style={{ padding: '2px 8px', fontWeight: '600', color: '#0F172A' }}>{date}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '2px 8px', textAlign: 'right', color: '#64748B' }}>Inspector:</td>
+                              <td style={{ padding: '2px 8px', fontWeight: '600', color: '#0F172A' }}>{inspectorName || '—'}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '2px 8px', textAlign: 'right', color: '#64748B' }}>Phone:</td>
+                              <td style={{ padding: '2px 8px', fontWeight: '600', color: '#0F172A' }}>{phone || '—'}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Navy divider */}
+                <div style={{ height: '3px', backgroundColor: '#00224a', marginBottom: '16px' }} />
+
+                {/* Property info banner */}
+                <div style={{
+                  backgroundColor: '#F8FAFC',
+                  borderLeft: '4px solid #0369A1',
+                  borderRadius: '4px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A', marginBottom: '4px' }}>
+                    {propertyAddress || 'No address provided'}
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569' }}>
+                    Client: {clientName || '—'}
+                  </div>
+                </div>
+
+                {/* Photo preview - show first 4 */}
+                {photosWithImages.length > 0 && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+                    <tbody>
+                      {Array.from({ length: Math.min(2, Math.ceil(photosWithImages.length / 2)) }).map((_, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {[0, 1].map(colIndex => {
+                            const photoIndex = rowIndex * 2 + colIndex;
+                            const photo = photosWithImages[photoIndex];
+                            if (!photo) return <td key={colIndex} style={{ width: '50%' }} />;
+                            const conditionStyle = CONDITION_COLORS[photo.condition || 'N/A'];
+
+                            return (
+                              <td key={photo.id} style={{
+                                width: '50%',
+                                padding: '6px',
+                                verticalAlign: 'top',
+                              }}>
+                                <div style={{
+                                  fontSize: '9px',
+                                  fontWeight: '600',
+                                  color: '#374151',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.05em',
+                                  marginBottom: '4px',
+                                }}>
+                                  {photo.label}
+                                </div>
+                                <div style={{
+                                  width: '350px',
+                                  height: '180px',
+                                  backgroundColor: '#F1F5F9',
+                                  borderRadius: '4px',
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}>
+                                  <img
+                                    src={photo.url!}
+                                    alt={photo.label}
+                                    style={{
+                                      maxWidth: '350px',
+                                      maxHeight: '180px',
+                                      width: 'auto',
+                                      height: 'auto',
+                                      objectFit: 'contain',
+                                    }}
+                                  />
+                                </div>
+                                <div style={{
+                                  marginTop: '6px',
+                                  display: 'inline-block',
+                                  backgroundColor: conditionStyle.bg,
+                                  color: conditionStyle.color,
+                                  borderRadius: '4px',
+                                  padding: '3px 10px',
+                                  fontSize: '10px',
+                                  fontWeight: '600',
+                                  lineHeight: '1.2',
+                                }}>
+                                  {photo.condition || 'N/A'}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                {photosWithImages.length > 4 && (
+                  <div style={{
+                    padding: '12px',
+                    textAlign: 'center',
+                    color: '#64748B',
+                    fontSize: '10px',
+                    backgroundColor: '#F8FAFC',
+                    borderRadius: '4px',
+                    marginBottom: '16px',
+                  }}>
+                    + {photosWithImages.length - 4} more photo{photosWithImages.length - 4 !== 1 ? 's' : ''} in full PDF
+                  </div>
+                )}
+
+                {photosWithImages.length === 0 && (
+                  <div style={{
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: '#94A3B8',
+                    fontSize: '11px',
+                    backgroundColor: '#F8FAFC',
+                    borderRadius: '4px',
+                    marginBottom: '16px',
+                  }}>
+                    No inspection photos included
+                  </div>
+                )}
+
+                {/* Summary Block */}
+                <div style={{
+                  backgroundColor: CONDITION_COLORS[overallCondition].bg,
+                  borderRadius: '4px',
+                  padding: '12px 16px',
+                  marginBottom: '12px',
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ verticalAlign: 'middle' }}>
+                          <span style={{ fontSize: '10px', color: '#64748B', marginRight: '8px', verticalAlign: 'middle' }}>Overall Condition:</span>
+                          <div style={{
+                            display: 'inline-block',
+                            backgroundColor: CONDITION_COLORS[overallCondition].color,
+                            color: '#ffffff',
+                            borderRadius: '4px',
+                            padding: '5px 14px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            lineHeight: '1',
+                            verticalAlign: 'middle',
+                          }}>
+                            {overallCondition}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
+                          <span style={{ fontSize: '10px', color: '#64748B' }}>
+                            Est. Roof Age: <strong style={{ color: '#0F172A' }}>{roofAge || '—'} years</strong>
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Recommended Action */}
+                <div style={{
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: '4px',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                }}>
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    Recommended Action
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#0F172A', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                    {recommendedAction || 'No recommendations provided.'}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{
+                  backgroundColor: '#00224a',
+                  borderRadius: '4px',
+                  padding: '12px 16px',
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '600' }}>
+                          {companyInfo.name}
+                        </td>
+                        <td style={{ fontSize: '9px', color: '#64748B', textAlign: 'right' }}>
+                          {reportNumber}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* HIDDEN PRINT TEMPLATE */}
@@ -690,7 +993,7 @@ export function InspectionReport() {
             {propertyAddress || 'No address provided'}
           </div>
           <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569' }}>
-            Owner: {ownerName || '—'}
+            Client: {clientName || '—'}
           </div>
         </div>
 
@@ -881,7 +1184,7 @@ export function InspectionReport() {
             <tbody>
               <tr>
                 <td style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '600' }}>
-                  Roof Repair Partners
+                  {companyInfo.name}
                 </td>
                 <td style={{ fontSize: '9px', color: '#64748B', textAlign: 'right' }}>
                   {reportNumber}
