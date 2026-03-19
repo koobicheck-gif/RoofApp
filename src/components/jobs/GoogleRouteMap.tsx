@@ -147,23 +147,16 @@ export function GoogleRouteMap({
 
         const { Map, DirectionsRenderer } = window.google.maps;
 
-        // Initialize map centered on Oklahoma City
+        // Initialize map centered on Oklahoma City with satellite view
         const map = new Map(mapRef.current, {
           center: { lat: 35.4676, lng: -97.5164 },
           zoom: 10,
-          mapTypeId: 'roadmap',
+          mapTypeId: 'hybrid', // Satellite with labels
           disableDefaultUI: false,
           zoomControl: true,
-          mapTypeControl: false,
+          mapTypeControl: true, // Allow switching between map types
           streetViewControl: false,
-          fullscreenControl: true,
-          styles: [
-            {
-              featureType: 'poi',
-              elementType: 'labels',
-              stylers: [{ visibility: 'off' }]
-            }
-          ]
+          fullscreenControl: true
         });
 
         mapInstanceRef.current = map;
