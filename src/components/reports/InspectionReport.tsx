@@ -4,6 +4,23 @@ import type { CompanyInfo } from '../../types';
 
 const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
+const DRAFTS_STORAGE_KEY = 'roofapp_report_drafts';
+
+interface ReportDraft {
+  id: string;
+  savedAt: string;
+  reportNumber: string;
+  date: string;
+  propertyAddress: string;
+  clientName: string;
+  inspectorName: string;
+  phone: string;
+  roofAge: string;
+  overallCondition: ConditionType;
+  recommendedAction: string;
+  photos: PhotoState;
+  additionalPhotos: AdditionalPhoto[];
+}
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: 'Roof Repair Partners',
@@ -79,7 +96,7 @@ export function InspectionReport() {
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
 
   // Form state
-  const [reportNumber] = useState(generateReportNumber);
+  const [reportNumber, setReportNumber] = useState(generateReportNumber);
   const [date, setDate] = useState(getTodayDate);
   const [propertyAddress, setPropertyAddress] = useState('');
   const [clientName, setClientName] = useState('');
@@ -105,7 +122,125 @@ export function InspectionReport() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY);
 
-  // Load company branding on mount
+  // Draft management
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<ReportDraft[]>([]);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+
+  // Load drafts from localStorage
+  const loadDrafts = useCallback(() => {
+    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (stored) {
+      try {
+        setDrafts(JSON.parse(stored));
+      } catch {
+        setDrafts([]);
+      }
+    }
+  }, []);
+
+  // Save current form as draft
+  const saveDraft = useCallback(() => {
+    const draftId = currentDraftId || `draft-${Date.now()}`;
+    const draft: ReportDraft = {
+      id: draftId,
+      savedAt: new Date().toISOString(),
+      reportNumber,
+      date,
+      propertyAddress,
+      clientName,
+      inspectorName,
+      phone,
+      roofAge,
+      overallCondition,
+      recommendedAction,
+      photos,
+      additionalPhotos,
+    };
+
+    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    let existingDrafts: ReportDraft[] = [];
+    if (stored) {
+      try {
+        existingDrafts = JSON.parse(stored);
+      } catch {
+        existingDrafts = [];
+      }
+    }
+
+    // Update existing or add new
+    const draftIndex = existingDrafts.findIndex(d => d.id === draftId);
+    if (draftIndex >= 0) {
+      existingDrafts[draftIndex] = draft;
+    } else {
+      existingDrafts.unshift(draft);
+    }
+
+    localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(existingDrafts));
+    setDrafts(existingDrafts);
+    setCurrentDraftId(draftId);
+    setDraftSaved(true);
+    setTimeout(() => setDraftSaved(false), 2000);
+  }, [currentDraftId, reportNumber, date, propertyAddress, clientName, inspectorName, phone, roofAge, overallCondition, recommendedAction, photos, additionalPhotos]);
+
+  // Load a draft into the form
+  const loadDraft = useCallback((draft: ReportDraft) => {
+    setReportNumber(draft.reportNumber);
+    setDate(draft.date);
+    setPropertyAddress(draft.propertyAddress);
+    setClientName(draft.clientName);
+    setInspectorName(draft.inspectorName);
+    setPhone(draft.phone);
+    setRoofAge(draft.roofAge);
+    setOverallCondition(draft.overallCondition);
+    setRecommendedAction(draft.recommendedAction);
+    setPhotos(draft.photos);
+    setAdditionalPhotos(draft.additionalPhotos);
+    setCurrentDraftId(draft.id);
+    setShowDraftsModal(false);
+  }, []);
+
+  // Delete a draft
+  const deleteDraft = useCallback((draftId: string) => {
+    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (stored) {
+      try {
+        const existingDrafts: ReportDraft[] = JSON.parse(stored);
+        const filtered = existingDrafts.filter(d => d.id !== draftId);
+        localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(filtered));
+        setDrafts(filtered);
+        if (currentDraftId === draftId) {
+          setCurrentDraftId(null);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  }, [currentDraftId]);
+
+  // Start new report (clear form)
+  const startNewReport = useCallback(() => {
+    setReportNumber(generateReportNumber());
+    setDate(getTodayDate());
+    setPropertyAddress('');
+    setClientName('');
+    setInspectorName('');
+    setPhone('');
+    setRoofAge('');
+    setOverallCondition('Good');
+    setRecommendedAction('');
+    const initial: PhotoState = {};
+    PHOTO_SLOTS.forEach(slot => {
+      initial[slot.id] = { url: null, condition: 'N/A', notes: '', label: slot.label };
+    });
+    setPhotos(initial);
+    setAdditionalPhotos([]);
+    setCurrentDraftId(null);
+    setShowDraftsModal(false);
+  }, []);
+
+  // Load company branding and drafts on mount
   useEffect(() => {
     const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
     if (storedLogo) setLogoUrl(storedLogo);
@@ -118,7 +253,9 @@ export function InspectionReport() {
         // Use default
       }
     }
-  }, []);
+
+    loadDrafts();
+  }, [loadDrafts]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -276,6 +413,105 @@ export function InspectionReport() {
       {/* Font import */}
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');`}</style>
 
+      {/* Drafts Modal */}
+      {showDraftsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Saved Drafts</h2>
+                <p className="text-sm text-slate-500">{drafts.length} draft{drafts.length !== 1 ? 's' : ''} available</p>
+              </div>
+              <button
+                onClick={() => setShowDraftsModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto max-h-[50vh]">
+              {drafts.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-slate-500">No saved drafts yet</p>
+                  <p className="text-sm text-slate-400 mt-1">Click "Save Draft" to save your work</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {drafts.map(draft => (
+                    <div
+                      key={draft.id}
+                      className={`px-6 py-4 hover:bg-slate-50 transition-colors ${currentDraftId === draft.id ? 'bg-violet-50 border-l-4 border-violet-500' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-900 truncate">
+                            {draft.propertyAddress || 'Untitled Report'}
+                          </div>
+                          <div className="text-sm text-slate-500 mt-0.5">
+                            {draft.clientName && <span>{draft.clientName} &bull; </span>}
+                            <span>{draft.reportNumber}</span>
+                          </div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            Saved {new Date(draft.savedAt).toLocaleDateString()} at {new Date(draft.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => loadDraft(draft)}
+                            className="px-3 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 text-sm font-medium rounded-lg transition-colors"
+                          >
+                            Load
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Delete this draft?')) {
+                                deleteDraft(draft.id);
+                              }
+                            }}
+                            className="p-1.5 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <button
+                onClick={startNewReport}
+                className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 font-medium rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Start New Report
+              </button>
+              <button
+                onClick={() => setShowDraftsModal(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Professional Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
@@ -290,16 +526,76 @@ export function InspectionReport() {
               <p className="text-sm text-slate-500">Create professional roof inspection reports</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Draft indicator */}
+            {currentDraftId && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-xs font-medium text-amber-700">Draft</span>
+              </div>
+            )}
+
+            {/* Photo count */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
               <div className={`w-2 h-2 rounded-full ${photosWithImages.length > 0 ? 'bg-green-500' : 'bg-amber-500'}`} />
               <span className="text-sm text-slate-600">{photosWithImages.length} photo{photosWithImages.length !== 1 ? 's' : ''}</span>
             </div>
+
+            {/* New Report */}
+            <button
+              onClick={startNewReport}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="text-sm">New</span>
+            </button>
+
+            {/* Load Drafts */}
+            <button
+              onClick={() => setShowDraftsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg transition-colors relative"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              <span className="text-sm hidden sm:inline">Drafts</span>
+              {drafts.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {drafts.length}
+                </span>
+              )}
+            </button>
+
+            {/* Save Draft */}
+            <button
+              onClick={saveDraft}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+            >
+              {draftSaved ? (
+                <>
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm text-green-600 hidden sm:inline">Saved!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  <span className="text-sm hidden sm:inline">Save Draft</span>
+                </>
+              )}
+            </button>
+
+            {/* Download PDF */}
             <button
               ref={downloadBtnRef}
               onClick={handleDownloadPDF}
               disabled={isGenerating}
-              className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
+              className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
             >
               {isGenerating ? (
                 <>
