@@ -102,7 +102,6 @@ export function WeatherBanner() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [showRadar, setShowRadar] = useState(false);
 
   useEffect(() => {
@@ -212,26 +211,6 @@ export function WeatherBanner() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch radar timestamp from RainViewer
-  useEffect(() => {
-    async function fetchRadarTimestamp() {
-      try {
-        const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-        const data = await response.json();
-        if (data.radar?.past?.length > 0) {
-          const latest = data.radar.past[data.radar.past.length - 1];
-          setRadarTimestamp(latest.path);
-        }
-      } catch {
-        // Radar unavailable
-      }
-    }
-
-    fetchRadarTimestamp();
-    // Refresh radar every 5 minutes
-    const radarInterval = setInterval(fetchRadarTimestamp, 5 * 60 * 1000);
-    return () => clearInterval(radarInterval);
-  }, []);
 
   if (isLoading) {
     return (
@@ -368,77 +347,58 @@ export function WeatherBanner() {
                 </div>
               )}
 
-              {/* Live Radar */}
-              {radarTimestamp && location && (
-                <div className="mb-4">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowRadar(!showRadar);
-                    }}
-                    className="flex items-center gap-2 text-white/70 hover:text-white text-sm mb-2 transition-colors"
+              {/* News 9 Live Radar */}
+              <div className="mb-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRadar(!showRadar);
+                  }}
+                  className="flex items-center gap-2 text-white/70 hover:text-white text-sm mb-2 transition-colors"
+                >
+                  <span className="text-lg">📡</span>
+                  <span>News 9 Live Radar</span>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${showRadar ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <span className="text-lg">📡</span>
-                    <span>Live Radar</span>
-                    <svg
-                      className={`w-4 h-4 transition-transform ${showRadar ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-                  {showRadar && (
-                    <div className="relative rounded-xl overflow-hidden bg-slate-900" style={{ height: '280px' }}>
-                      {/* Base map layer */}
-                      <img
-                        src={`https://tile.openstreetmap.org/${Math.floor(7)}/${Math.floor((location.lng + 180) / 360 * Math.pow(2, 7))}/${Math.floor((1 - Math.log(Math.tan(location.lat * Math.PI / 180) + 1 / Math.cos(location.lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, 7))}.png`}
-                        alt="Map"
-                        className="absolute inset-0 w-full h-full object-cover opacity-40"
-                        style={{ filter: 'grayscale(100%) brightness(0.4)' }}
-                      />
+                {showRadar && (
+                  <div className="relative rounded-xl overflow-hidden bg-slate-900" style={{ height: '320px' }}>
+                    <iframe
+                      src="https://www.news9.com/nextgen-live-radar"
+                      title="News 9 Live Radar"
+                      className="absolute inset-0 w-full h-full border-0"
+                      allow="geolocation"
+                      loading="lazy"
+                    />
 
-                      {/* Radar overlay */}
-                      <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{
-                          backgroundImage: `url(https://tilecache.rainviewer.com${radarTimestamp}/512/7/${Math.floor((location.lng + 180) / 360 * Math.pow(2, 7))}/${Math.floor((1 - Math.log(Math.tan(location.lat * Math.PI / 180) + 1 / Math.cos(location.lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, 7))}/4/1_1.png)`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                        }}
-                      />
-
-                      {/* Location marker */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="relative">
-                          <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg" />
-                          <div className="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-50" />
-                        </div>
-                      </div>
-
-                      {/* Legend */}
-                      <div className="absolute bottom-2 left-2 bg-black/60 rounded-lg px-2 py-1 flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-2 rounded-sm" style={{ background: 'linear-gradient(90deg, #00ff00, #ffff00, #ff9900, #ff0000, #cc00cc)' }} />
-                          <span className="text-white/70 text-[10px]">Light → Heavy</span>
-                        </div>
-                      </div>
-
-                      {/* Timestamp */}
-                      <div className="absolute bottom-2 right-2 bg-black/60 rounded-lg px-2 py-1">
-                        <span className="text-white/70 text-[10px]">Live radar</span>
-                      </div>
-
-                      {/* Zoom hint */}
-                      <div className="absolute top-2 right-2 bg-black/60 rounded-lg px-2 py-1">
-                        <span className="text-white/50 text-[10px]">{location.city || 'Your area'}</span>
+                    {/* Fallback link overlay */}
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                      <a
+                        href="https://www.news9.com/nextgen-live-radar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                      >
+                        <span>Open News 9 Radar</span>
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                      <div className="bg-black/70 rounded-lg px-2 py-1">
+                        <span className="text-white/70 text-[10px]">KWTV Oklahoma City</span>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
 
               {/* Detail Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
