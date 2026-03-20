@@ -6,6 +6,80 @@ const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
 const DRAFTS_STORAGE_KEY = 'roofapp_report_drafts';
 
+// Helper to load and process image with proper orientation and aspect ratio
+async function processImageForPdf(
+  imageUrl: string,
+  targetWidth: number,
+  targetHeight: number
+): Promise<{ dataUrl: string; width: number; height: number; x: number; y: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      // Create canvas to process image (this applies EXIF orientation automatically in modern browsers)
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+
+      // Use natural dimensions (after browser applies EXIF orientation)
+      const imgWidth = img.naturalWidth;
+      const imgHeight = img.naturalHeight;
+
+      // Calculate aspect ratios
+      const imgAspect = imgWidth / imgHeight;
+      const targetAspect = targetWidth / targetHeight;
+
+      let drawWidth: number;
+      let drawHeight: number;
+      let offsetX: number;
+      let offsetY: number;
+
+      // Fit image within target bounds while maintaining aspect ratio (contain)
+      if (imgAspect > targetAspect) {
+        // Image is wider than target - fit to width
+        drawWidth = targetWidth;
+        drawHeight = targetWidth / imgAspect;
+        offsetX = 0;
+        offsetY = (targetHeight - drawHeight) / 2;
+      } else {
+        // Image is taller than target - fit to height
+        drawHeight = targetHeight;
+        drawWidth = targetHeight * imgAspect;
+        offsetX = (targetWidth - drawWidth) / 2;
+        offsetY = 0;
+      }
+
+      // Set canvas to image dimensions for full quality
+      canvas.width = imgWidth;
+      canvas.height = imgHeight;
+
+      // Draw image to canvas (applies EXIF orientation)
+      ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+
+      // Convert to data URL
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      resolve({
+        dataUrl,
+        width: drawWidth,
+        height: drawHeight,
+        x: offsetX,
+        y: offsetY,
+      });
+    };
+
+    img.onerror = () => {
+      resolve(null);
+    };
+
+    img.src = imageUrl;
+  });
+}
+
 interface ReportDraft {
   id: string;
   savedAt: string;
@@ -446,6 +520,17 @@ export function InspectionReport() {
         const photoH = 55; // Height for each photo block
         const photoImgH = 42; // Actual image height
 
+        // Pre-process all images for proper orientation and aspect ratio
+        const processedImages = await Promise.all(
+          photosWithImages.map(async (photo) => {
+            if (!photo.url) return null;
+            // Convert mm to pixels (assuming 96 DPI, 1mm ≈ 3.78 pixels)
+            const targetWidthPx = (photoW - 2) * 3.78;
+            const targetHeightPx = (photoImgH - 2) * 3.78;
+            return processImageForPdf(photo.url, targetWidthPx, targetHeightPx);
+          })
+        );
+
         for (let i = 0; i < photosWithImages.length; i += 2) {
           // Check if we need a new page for this row of photos
           checkPageBreak(photoH + 8);
@@ -467,10 +552,26 @@ export function InspectionReport() {
             pdf.setFillColor('#E2E8F0');
             pdf.rect(x, y + 5, photoW, photoImgH, 'F');
 
-            // Try to add the actual image
-            if (photo.url) {
+            // Try to add the actual image with proper orientation and aspect ratio
+            const processed = processedImages[photoIndex];
+            if (processed) {
               try {
-                pdf.addImage(photo.url, 'JPEG', x + 1, y + 6, photoW - 2, photoImgH - 2, undefined, 'MEDIUM');
+                // Convert pixel offsets back to mm
+                const offsetXMm = processed.x / 3.78;
+                const offsetYMm = processed.y / 3.78;
+                const drawWMm = processed.width / 3.78;
+                const drawHMm = processed.height / 3.78;
+
+                pdf.addImage(
+                  processed.dataUrl,
+                  'JPEG',
+                  x + 1 + offsetXMm,
+                  y + 6 + offsetYMm,
+                  drawWMm,
+                  drawHMm,
+                  undefined,
+                  'MEDIUM'
+                );
               } catch {
                 // Keep placeholder if image fails
               }
