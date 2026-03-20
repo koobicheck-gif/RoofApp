@@ -349,24 +349,26 @@ export function InspectionReport() {
   }, []);
 
   const handlePhotoUpload = useCallback((slotId: string, file: File) => {
-    const url = URL.createObjectURL(file);
-    setPhotos(prev => {
-      if (prev[slotId]?.url) URL.revokeObjectURL(prev[slotId].url!);
-      return {
-        ...prev,
-        [slotId]: { ...prev[slotId], url },
-      };
-    });
+    // Convert to base64 data URL for localStorage persistence
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setPhotos(prev => {
+        // No need to revoke data URLs (they're not blob URLs)
+        return {
+          ...prev,
+          [slotId]: { ...prev[slotId], url: dataUrl },
+        };
+      });
+    };
+    reader.readAsDataURL(file);
   }, []);
 
   const handlePhotoRemove = useCallback((slotId: string) => {
-    setPhotos(prev => {
-      if (prev[slotId]?.url) URL.revokeObjectURL(prev[slotId].url!);
-      return {
-        ...prev,
-        [slotId]: { ...prev[slotId], url: null },
-      };
-    });
+    setPhotos(prev => ({
+      ...prev,
+      [slotId]: { ...prev[slotId], url: null },
+    }));
   }, []);
 
   const handleConditionChange = useCallback((slotId: string, condition: ConditionType) => {
@@ -385,20 +387,21 @@ export function InspectionReport() {
 
   // Additional photo handlers
   const handleAddPhoto = useCallback((file: File) => {
-    const url = URL.createObjectURL(file);
-    const id = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setAdditionalPhotos(prev => [
-      ...prev,
-      { id, url, condition: 'N/A', notes: '', label: `Additional Photo ${prev.length + 1}` },
-    ]);
+    // Convert to base64 data URL for localStorage persistence
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const id = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setAdditionalPhotos(prev => [
+        ...prev,
+        { id, url: dataUrl, condition: 'N/A', notes: '', label: `Additional Photo ${prev.length + 1}` },
+      ]);
+    };
+    reader.readAsDataURL(file);
   }, []);
 
   const handleAdditionalPhotoRemove = useCallback((id: string) => {
-    setAdditionalPhotos(prev => {
-      const photo = prev.find(p => p.id === id);
-      if (photo?.url) URL.revokeObjectURL(photo.url);
-      return prev.filter(p => p.id !== id);
-    });
+    setAdditionalPhotos(prev => prev.filter(p => p.id !== id));
   }, []);
 
   const handleAdditionalConditionChange = useCallback((id: string, condition: ConditionType) => {
