@@ -486,12 +486,18 @@ export function InspectionReport() {
             const cond = photo.condition || 'N/A';
             const condColor = conditionColors[cond] || conditionColors['N/A'];
 
+            const badgeX = x;
+            const badgeY = y + photoImgH + 7;
+            const badgeW = 18;
+            const badgeH = 6;
+
             pdf.setFillColor(condColor.bg);
-            pdf.roundedRect(x, y + photoImgH + 7, 18, 5, 1, 1, 'F');
-            pdf.setFontSize(7);
+            pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 1.5, 1.5, 'F');
+            pdf.setFontSize(8);
             pdf.setFont('helvetica', 'bold');
             pdf.setTextColor(condColor.text);
-            pdf.text(cond, x + 9, y + photoImgH + 10.5, { align: 'center' });
+            // Center text: x + width/2 for horizontal, y + height/2 + fontSize/3 for vertical
+            pdf.text(cond, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1, { align: 'center' });
 
             // Notes if any
             if (photo.notes) {
@@ -529,12 +535,18 @@ export function InspectionReport() {
       pdf.text('Overall Condition:', margin + 4, y + 6);
 
       // Condition badge
+      const overallBadgeX = margin + 35;
+      const overallBadgeY = y + 3;
+      const overallBadgeW = 24;
+      const overallBadgeH = 8;
+
       pdf.setFillColor(condStyle.badge);
-      pdf.roundedRect(margin + 35, y + 2, 22, 7, 1.5, 1.5, 'F');
-      pdf.setFontSize(9);
+      pdf.roundedRect(overallBadgeX, overallBadgeY, overallBadgeW, overallBadgeH, 2, 2, 'F');
+      pdf.setFontSize(10);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor('#ffffff');
-      pdf.text(overallCondition, margin + 46, y + 7, { align: 'center' });
+      // Center text: x + width/2 for horizontal, y + height/2 + fontSize/3 for vertical
+      pdf.text(overallCondition, overallBadgeX + overallBadgeW / 2, overallBadgeY + overallBadgeH / 2 + 1.2, { align: 'center' });
 
       // Roof age on right
       pdf.setFontSize(9);
