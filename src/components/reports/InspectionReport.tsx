@@ -346,7 +346,6 @@ export function InspectionReport() {
   }, []);
 
   const handlePreviewPDF = async () => {
-    if (!printRef.current) return;
     setIsGenerating(true);
 
     if (downloadBtnRef.current) {
@@ -354,38 +353,266 @@ export function InspectionReport() {
     }
 
     try {
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ]);
+      const { default: jsPDF } = await import('jspdf');
 
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
-        imageTimeout: 15000,
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageH = pdf.internal.pageSize.getHeight(); // 297mm
       const pageW = pdf.internal.pageSize.getWidth(); // 210mm
-      const imgW = pageW;
-      const imgH = (canvas.height * imgW) / canvas.width;
+      const pageH = pdf.internal.pageSize.getHeight(); // 297mm
+      const margin = 15;
+      const contentW = pageW - margin * 2;
+      let y = margin;
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, '', 'FAST');
+      // Colors
+      const navy = '#00224a';
+      const blue = '#0369A1';
+      const darkGray = '#0F172A';
+      const medGray = '#64748B';
+      const lightGray = '#F8FAFC';
 
-      let heightLeft = imgH - pageH;
-      let position = 0;
+      // Helper to check if we need a new page
+      const checkPageBreak = (neededHeight: number) => {
+        if (y + neededHeight > pageH - margin) {
+          pdf.addPage();
+          y = margin;
+          return true;
+        }
+        return false;
+      };
 
-      while (heightLeft > 0) {
-        position -= pageH;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH, '', 'FAST');
-        heightLeft -= pageH;
+      // ===== HEADER =====
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(navy);
+      pdf.text(companyInfo.name, margin, y + 6);
+
+      if (companyInfo.tagline) {
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(medGray);
+        pdf.text(companyInfo.tagline, margin, y + 11);
       }
+
+      // Report title on right
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(blue);
+      pdf.text('ROOF INSPECTION REPORT', pageW - margin, y + 4, { align: 'right' });
+
+      // Report details
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(medGray);
+      const detailsY = y + 10;
+      pdf.text(`Report #: ${reportNumber}`, pageW - margin, detailsY, { align: 'right' });
+      pdf.text(`Date: ${date}`, pageW - margin, detailsY + 4, { align: 'right' });
+      pdf.text(`Inspector: ${inspectorName || '—'}`, pageW - margin, detailsY + 8, { align: 'right' });
+      pdf.text(`Phone: ${phone || '—'}`, pageW - margin, detailsY + 12, { align: 'right' });
+
+      y += 28;
+
+      // Navy divider
+      pdf.setFillColor(navy);
+      pdf.rect(margin, y, contentW, 1.5, 'F');
+      y += 6;
+
+      // ===== PROPERTY INFO =====
+      pdf.setFillColor(lightGray);
+      pdf.rect(margin, y, contentW, 16, 'F');
+      pdf.setDrawColor(blue);
+      pdf.setLineWidth(1);
+      pdf.line(margin, y, margin, y + 16);
+
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(darkGray);
+      pdf.text(propertyAddress || 'No address provided', margin + 5, y + 6);
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(medGray);
+      pdf.text(`Client: ${clientName || '—'}`, margin + 5, y + 12);
+
+      y += 22;
+
+      // ===== PHOTOS =====
+      if (photosWithImages.length > 0) {
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(blue);
+        pdf.text('INSPECTION PHOTOS', margin, y);
+        y += 6;
+
+        const photoW = (contentW - 6) / 2; // Two photos per row with gap
+        const photoH = 55; // Height for each photo block
+        const photoImgH = 42; // Actual image height
+
+        for (let i = 0; i < photosWithImages.length; i += 2) {
+          // Check if we need a new page for this row of photos
+          checkPageBreak(photoH + 8);
+
+          for (let j = 0; j < 2; j++) {
+            const photoIndex = i + j;
+            if (photoIndex >= photosWithImages.length) break;
+
+            const photo = photosWithImages[photoIndex];
+            const x = margin + j * (photoW + 6);
+
+            // Photo label
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(medGray);
+            pdf.text(photo.label.toUpperCase(), x, y + 3);
+
+            // Photo placeholder/image
+            pdf.setFillColor('#E2E8F0');
+            pdf.rect(x, y + 5, photoW, photoImgH, 'F');
+
+            // Try to add the actual image
+            if (photo.url) {
+              try {
+                pdf.addImage(photo.url, 'JPEG', x + 1, y + 6, photoW - 2, photoImgH - 2, undefined, 'MEDIUM');
+              } catch {
+                // Keep placeholder if image fails
+              }
+            }
+
+            // Condition badge
+            const conditionColors: Record<string, { bg: string; text: string }> = {
+              Good: { bg: '#DCFCE7', text: '#166534' },
+              Fair: { bg: '#FEF3C7', text: '#92400E' },
+              Poor: { bg: '#FEE2E2', text: '#991B1B' },
+              'N/A': { bg: '#F1F5F9', text: '#475569' },
+            };
+            const cond = photo.condition || 'N/A';
+            const condColor = conditionColors[cond] || conditionColors['N/A'];
+
+            pdf.setFillColor(condColor.bg);
+            pdf.roundedRect(x, y + photoImgH + 7, 18, 5, 1, 1, 'F');
+            pdf.setFontSize(7);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(condColor.text);
+            pdf.text(cond, x + 9, y + photoImgH + 10.5, { align: 'center' });
+
+            // Notes if any
+            if (photo.notes) {
+              pdf.setFontSize(7);
+              pdf.setFont('helvetica', 'italic');
+              pdf.setTextColor(medGray);
+              const noteText = photo.notes.length > 40 ? photo.notes.substring(0, 40) + '...' : photo.notes;
+              pdf.text(noteText, x + 20, y + photoImgH + 10.5);
+            }
+          }
+
+          y += photoH;
+        }
+
+        y += 4;
+      }
+
+      // ===== OVERALL ASSESSMENT =====
+      checkPageBreak(35);
+
+      const conditionColors: Record<string, { bg: string; badge: string }> = {
+        Good: { bg: '#DCFCE7', badge: '#166534' },
+        Fair: { bg: '#FEF3C7', badge: '#92400E' },
+        Poor: { bg: '#FEE2E2', badge: '#991B1B' },
+      };
+      const condStyle = conditionColors[overallCondition] || conditionColors.Good;
+
+      // Condition banner
+      pdf.setFillColor(condStyle.bg);
+      pdf.rect(margin, y, contentW, 14, 'F');
+
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(medGray);
+      pdf.text('Overall Condition:', margin + 4, y + 6);
+
+      // Condition badge
+      pdf.setFillColor(condStyle.badge);
+      pdf.roundedRect(margin + 35, y + 2, 22, 7, 1.5, 1.5, 'F');
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor('#ffffff');
+      pdf.text(overallCondition, margin + 46, y + 7, { align: 'center' });
+
+      // Roof age on right
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(medGray);
+      pdf.text(`Est. Roof Age: `, pageW - margin - 30, y + 9, { align: 'right' });
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(darkGray);
+      pdf.text(`${roofAge || '—'} years`, pageW - margin - 4, y + 9, { align: 'right' });
+
+      y += 18;
+
+      // ===== RECOMMENDED ACTION =====
+      checkPageBreak(30);
+
+      pdf.setFillColor(lightGray);
+      pdf.rect(margin, y, contentW, 24, 'F');
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(medGray);
+      pdf.text('RECOMMENDED ACTION', margin + 4, y + 5);
+
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(darkGray);
+      const actionLines = pdf.splitTextToSize(recommendedAction || 'No recommendations provided.', contentW - 8);
+      pdf.text(actionLines.slice(0, 3), margin + 4, y + 11);
+
+      y += 28;
+
+      // ===== SIGNATURE SECTION =====
+      checkPageBreak(30);
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(medGray);
+      pdf.text('SIGNATURES', margin, y);
+      y += 6;
+
+      // Inspector signature line
+      pdf.setDrawColor(medGray);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, y + 12, margin + 70, y + 12);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Inspector Signature', margin, y + 16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(darkGray);
+      pdf.text(inspectorName || '—', margin, y + 20);
+
+      // Date line
+      pdf.setDrawColor(medGray);
+      pdf.line(margin + 90, y + 12, margin + 130, y + 12);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(medGray);
+      pdf.text('Date', margin + 90, y + 16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(darkGray);
+      pdf.text(date, margin + 90, y + 20);
+
+      y += 26;
+
+      // ===== FOOTER =====
+      checkPageBreak(14);
+
+      pdf.setFillColor(navy);
+      pdf.rect(margin, y, contentW, 10, 'F');
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor('#94A3B8');
+      pdf.text(companyInfo.name, margin + 4, y + 6.5);
+
+      pdf.setFontSize(7);
+      pdf.setTextColor(medGray);
+      pdf.text(reportNumber, pageW - margin - 4, y + 6.5, { align: 'right' });
 
       // Create blob URL for preview
       const pdfBlob = pdf.output('blob');
