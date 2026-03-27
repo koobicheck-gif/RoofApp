@@ -508,11 +508,11 @@ export function InspectionReport() {
         pdf.text('INSPECTION PHOTOS', margin, y);
         y += 6;
 
-        // Max dimensions for containers
-        const maxW = contentW;
-        const maxH = 90; // Max height for any photo
+        const photoW = (contentW - 6) / 2; // Two photos per row with gap
+        const photoH = 55; // Height for each photo block
+        const photoImgH = 42; // Actual image height
 
-        // Pre-process all images to get dimensions
+        // Pre-process all images for proper orientation and aspect ratio
         const processedImages = await Promise.all(
           photosWithImages.map(async (photo) => {
             if (!photo.url) return null;
@@ -521,110 +521,102 @@ export function InspectionReport() {
           })
         );
 
-        for (let i = 0; i < photosWithImages.length; i++) {
-          const photo = photosWithImages[i];
-          const processed = processedImages[i];
+        for (let i = 0; i < photosWithImages.length; i += 2) {
+          // Check if we need a new page for this row of photos
+          checkPageBreak(photoH + 8);
 
-          // Calculate container size based on image's actual aspect ratio
-          let containerW: number;
-          let containerH: number;
+          for (let j = 0; j < 2; j++) {
+            const photoIndex = i + j;
+            if (photoIndex >= photosWithImages.length) break;
 
-          if (processed) {
-            const imgAspect = processed.drawWidth / processed.drawHeight;
+            const photo = photosWithImages[photoIndex];
+            const x = margin + j * (photoW + 6);
 
-            if (processed.isPortrait) {
-              // Portrait: fit to max height, calculate width from aspect ratio
-              containerH = maxH;
-              containerW = maxH * imgAspect;
-              // Don't exceed max width
-              if (containerW > maxW) {
-                containerW = maxW;
-                containerH = maxW / imgAspect;
-              }
-            } else {
-              // Landscape: fit to max width, calculate height from aspect ratio
-              containerW = maxW;
-              containerH = maxW / imgAspect;
-              // Don't exceed max height
-              if (containerH > maxH) {
-                containerH = maxH;
-                containerW = maxH * imgAspect;
-              }
-            }
-          } else {
-            // Default fallback if no image
-            containerW = maxW;
-            containerH = 55;
-          }
-
-          const blockH = containerH + 15; // Container + label + badge space
-
-          // Check if we need a new page
-          checkPageBreak(blockH + 8);
-
-          // Center container on page
-          const x = margin + (contentW - containerW) / 2;
-
-          // Photo label
-          pdf.setFontSize(8);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(medGray);
-          pdf.text(photo.label.toUpperCase(), x, y + 3);
-
-          // Photo container - matches image aspect ratio exactly
-          pdf.setFillColor('#E2E8F0');
-          pdf.rect(x, y + 5, containerW, containerH, 'F');
-
-          // Add the actual image - fills container completely
-          if (processed) {
-            try {
-              pdf.addImage(
-                processed.dataUrl,
-                'JPEG',
-                x,
-                y + 5,
-                containerW,
-                containerH,
-                undefined,
-                'FAST'
-              );
-            } catch {
-              // Keep placeholder if image fails
-            }
-          }
-
-          // Condition badge
-          const conditionColors: Record<string, { bg: string; text: string }> = {
-            Good: { bg: '#DCFCE7', text: '#166534' },
-            Fair: { bg: '#FEF3C7', text: '#92400E' },
-            Poor: { bg: '#FEE2E2', text: '#991B1B' },
-            'N/A': { bg: '#F1F5F9', text: '#475569' },
-          };
-          const cond = photo.condition || 'N/A';
-          const condColor = conditionColors[cond] || conditionColors['N/A'];
-
-          const badgeX = x;
-          const badgeY = y + containerH + 7;
-          const badgeW = 18;
-          const badgeH = 6;
-
-          pdf.setFillColor(condColor.bg);
-          pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 1.5, 1.5, 'F');
-          pdf.setFontSize(8);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(condColor.text);
-          pdf.text(cond, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1, { align: 'center' });
-
-          // Notes if any
-          if (photo.notes) {
-            pdf.setFontSize(7);
-            pdf.setFont('helvetica', 'italic');
+            // Photo label
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'bold');
             pdf.setTextColor(medGray);
-            const noteText = photo.notes.length > 60 ? photo.notes.substring(0, 60) + '...' : photo.notes;
-            pdf.text(noteText, x + 20, y + containerH + 10.5);
+            pdf.text(photo.label.toUpperCase(), x, y + 3);
+
+            // Photo placeholder/image
+            pdf.setFillColor('#E2E8F0');
+            pdf.rect(x, y + 5, photoW, photoImgH, 'F');
+
+            // Try to add the actual image with proper orientation and aspect ratio
+            const processed = processedImages[photoIndex];
+            if (processed) {
+              try {
+                // Calculate image dimensions to fit container while maintaining aspect ratio
+                const imgAspect = processed.drawWidth / processed.drawHeight;
+                const containerW = photoW - 2;
+                const containerH = photoImgH - 2;
+                const containerAspect = containerW / containerH;
+
+                let drawWMm: number;
+                let drawHMm: number;
+
+                if (imgAspect > containerAspect) {
+                  // Image is wider - fit to width
+                  drawWMm = containerW;
+                  drawHMm = containerW / imgAspect;
+                } else {
+                  // Image is taller - fit to height
+                  drawHMm = containerH;
+                  drawWMm = containerH * imgAspect;
+                }
+
+                // Center within container
+                const offsetXMm = (photoW - drawWMm) / 2;
+                const offsetYMm = (photoImgH - drawHMm) / 2;
+
+                pdf.addImage(
+                  processed.dataUrl,
+                  'JPEG',
+                  x + offsetXMm,
+                  y + 5 + offsetYMm,
+                  drawWMm,
+                  drawHMm,
+                  undefined,
+                  'FAST'
+                );
+              } catch {
+                // Keep placeholder if image fails
+              }
+            }
+
+            // Condition badge
+            const conditionColors: Record<string, { bg: string; text: string }> = {
+              Good: { bg: '#DCFCE7', text: '#166534' },
+              Fair: { bg: '#FEF3C7', text: '#92400E' },
+              Poor: { bg: '#FEE2E2', text: '#991B1B' },
+              'N/A': { bg: '#F1F5F9', text: '#475569' },
+            };
+            const cond = photo.condition || 'N/A';
+            const condColor = conditionColors[cond] || conditionColors['N/A'];
+
+            const badgeX = x;
+            const badgeY = y + photoImgH + 7;
+            const badgeW = 18;
+            const badgeH = 6;
+
+            pdf.setFillColor(condColor.bg);
+            pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 1.5, 1.5, 'F');
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(condColor.text);
+            pdf.text(cond, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1, { align: 'center' });
+
+            // Notes if any
+            if (photo.notes) {
+              pdf.setFontSize(7);
+              pdf.setFont('helvetica', 'italic');
+              pdf.setTextColor(medGray);
+              const noteText = photo.notes.length > 40 ? photo.notes.substring(0, 40) + '...' : photo.notes;
+              pdf.text(noteText, x + 20, y + photoImgH + 10.5);
+            }
           }
 
-          y += blockH;
+          y += photoH;
         }
 
         y += 4;
