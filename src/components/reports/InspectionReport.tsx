@@ -11,9 +11,9 @@ const COMPANY_STORAGE_KEY = 'roofapp_company_info';
 // Helper to load and process image with proper orientation and compression for PDF
 async function processImageForPdf(
   imageUrl: string,
-  targetWidth: number,
-  targetHeight: number
-): Promise<{ dataUrl: string; width: number; height: number; x: number; y: number } | null> {
+  maxWidth: number,
+  maxHeight: number
+): Promise<{ dataUrl: string; drawWidth: number; drawHeight: number; isPortrait: boolean } | null> {
   return new Promise((resolve) => {
     const img = new Image();
 
@@ -35,6 +35,7 @@ async function processImageForPdf(
         // Use natural dimensions
         let imgWidth = img.naturalWidth;
         let imgHeight = img.naturalHeight;
+        const isPortrait = imgHeight > imgWidth;
 
         // Compress: limit max dimension to 800px for PDF
         const maxDimension = 800;
@@ -48,26 +49,29 @@ async function processImageForPdf(
           }
         }
 
-        // Calculate aspect ratios for positioning
+        // Calculate draw dimensions to fit within max bounds while maintaining aspect ratio
         const imgAspect = imgWidth / imgHeight;
-        const targetAspect = targetWidth / targetHeight;
-
         let drawWidth: number;
         let drawHeight: number;
-        let offsetX: number;
-        let offsetY: number;
 
-        // Fit image within target bounds while maintaining aspect ratio
-        if (imgAspect > targetAspect) {
-          drawWidth = targetWidth;
-          drawHeight = targetWidth / imgAspect;
-          offsetX = 0;
-          offsetY = (targetHeight - drawHeight) / 2;
+        if (isPortrait) {
+          // Portrait: fit to max height, width will be smaller
+          drawHeight = maxHeight;
+          drawWidth = maxHeight * imgAspect;
+          // But don't exceed max width
+          if (drawWidth > maxWidth) {
+            drawWidth = maxWidth;
+            drawHeight = maxWidth / imgAspect;
+          }
         } else {
-          drawHeight = targetHeight;
-          drawWidth = targetHeight * imgAspect;
-          offsetX = (targetWidth - drawWidth) / 2;
-          offsetY = 0;
+          // Landscape: fit to max width, height will be smaller
+          drawWidth = maxWidth;
+          drawHeight = maxWidth / imgAspect;
+          // But don't exceed max height
+          if (drawHeight > maxHeight) {
+            drawHeight = maxHeight;
+            drawWidth = maxHeight * imgAspect;
+          }
         }
 
         // Set canvas to compressed dimensions
@@ -82,10 +86,9 @@ async function processImageForPdf(
 
         resolve({
           dataUrl,
-          width: drawWidth,
-          height: drawHeight,
-          x: offsetX,
-          y: offsetY,
+          drawWidth,
+          drawHeight,
+          isPortrait,
         });
       } catch (err) {
         console.error('Error processing image:', err);
@@ -545,11 +548,15 @@ export function InspectionReport() {
             const processed = processedImages[photoIndex];
             if (processed) {
               try {
-                // Convert pixel offsets back to mm
-                const offsetXMm = processed.x / 3.78;
-                const offsetYMm = processed.y / 3.78;
-                const drawWMm = processed.width / 3.78;
-                const drawHMm = processed.height / 3.78;
+                // Convert pixel dimensions back to mm
+                const drawWMm = processed.drawWidth / 3.78;
+                const drawHMm = processed.drawHeight / 3.78;
+
+                // Calculate centering offsets within the placeholder
+                const placeholderWMm = photoW - 2; // Inner area (1mm padding each side)
+                const placeholderHMm = photoImgH - 2;
+                const offsetXMm = (placeholderWMm - drawWMm) / 2;
+                const offsetYMm = (placeholderHMm - drawHMm) / 2;
 
                 pdf.addImage(
                   processed.dataUrl,
