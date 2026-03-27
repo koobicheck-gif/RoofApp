@@ -38,7 +38,7 @@ async function savePhotoToDevice(file: File, label: string): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-// Helper to load and process image with proper orientation and aspect ratio
+// Helper to load and process image with proper orientation and compression for PDF
 async function processImageForPdf(
   imageUrl: string,
   targetWidth: number,
@@ -58,10 +58,22 @@ async function processImageForPdf(
       }
 
       // Use natural dimensions (after browser applies EXIF orientation)
-      const imgWidth = img.naturalWidth;
-      const imgHeight = img.naturalHeight;
+      let imgWidth = img.naturalWidth;
+      let imgHeight = img.naturalHeight;
 
-      // Calculate aspect ratios
+      // Compress: limit max dimension to 800px for PDF (good quality, small file size)
+      const maxDimension = 800;
+      if (imgWidth > maxDimension || imgHeight > maxDimension) {
+        if (imgWidth > imgHeight) {
+          imgHeight = (imgHeight * maxDimension) / imgWidth;
+          imgWidth = maxDimension;
+        } else {
+          imgWidth = (imgWidth * maxDimension) / imgHeight;
+          imgHeight = maxDimension;
+        }
+      }
+
+      // Calculate aspect ratios for positioning
       const imgAspect = imgWidth / imgHeight;
       const targetAspect = targetWidth / targetHeight;
 
@@ -85,15 +97,15 @@ async function processImageForPdf(
         offsetY = 0;
       }
 
-      // Set canvas to image dimensions for full quality
-      canvas.width = imgWidth;
-      canvas.height = imgHeight;
+      // Set canvas to compressed dimensions
+      canvas.width = Math.round(imgWidth);
+      canvas.height = Math.round(imgHeight);
 
       // Draw image to canvas (applies EXIF orientation)
-      ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      // Convert to data URL
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      // Convert to compressed JPEG (0.7 quality = good balance of quality vs size)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
       resolve({
         dataUrl,
@@ -579,7 +591,7 @@ export function InspectionReport() {
                   drawWMm,
                   drawHMm,
                   undefined,
-                  'MEDIUM'
+                  'FAST'
                 );
               } catch {
                 // Keep placeholder if image fails
