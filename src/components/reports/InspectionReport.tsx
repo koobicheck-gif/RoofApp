@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Card } from '../ui';
 import type { CompanyInfo } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseReports } from '../../hooks/useFirebaseReports';
+import { uploadPhoto } from '../../services/storageService';
 
 const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
-const DRAFTS_STORAGE_KEY = 'roofapp_report_drafts';
 
 // Helper to save photo to device camera roll/downloads
 async function savePhotoToDevice(file: File, label: string): Promise<void> {
@@ -34,50 +36,6 @@ async function savePhotoToDevice(file: File, label: string): Promise<void> {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-}
-
-// Helper to compress image for localStorage storage
-async function compressImageForStorage(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'));
-        return;
-      }
-
-      // Calculate new dimensions maintaining aspect ratio
-      let width = img.naturalWidth;
-      let height = img.naturalHeight;
-
-      if (width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-
-      // Draw image (this also applies EXIF orientation in modern browsers)
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Convert to compressed JPEG
-      const dataUrl = canvas.toDataURL('image/jpeg', quality);
-      resolve(dataUrl);
-    };
-
-    img.onerror = () => reject(new Error('Failed to load image'));
-
-    // Read file as data URL first
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
 }
 
 // Helper to load and process image with proper orientation and aspect ratio
@@ -154,22 +112,6 @@ async function processImageForPdf(
   });
 }
 
-interface ReportDraft {
-  id: string;
-  savedAt: string;
-  reportNumber: string;
-  date: string;
-  propertyAddress: string;
-  clientName: string;
-  inspectorName: string;
-  phone: string;
-  roofAge: string;
-  overallCondition: ConditionType;
-  recommendedAction: string;
-  photos: PhotoState;
-  additionalPhotos: AdditionalPhoto[];
-}
-
 const DEFAULT_COMPANY: CompanyInfo = {
   name: 'Roof Repair Partners',
   tagline: '',
@@ -201,6 +143,7 @@ type ConditionType = 'Good' | 'Fair' | 'Poor' | 'N/A';
 
 interface PhotoData {
   url: string | null;
+  storagePath?: string;
   condition: ConditionType;
   notes: string;
   label: string;
@@ -211,6 +154,7 @@ type PhotoState = Record<string, PhotoData>;
 interface AdditionalPhoto {
   id: string;
   url: string;
+  storagePath?: string;
   condition: ConditionType;
   notes: string;
   label: string;
@@ -242,6 +186,19 @@ export function InspectionReport() {
   const printRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Firebase hooks
+  const { user } = useAuth();
+  const {
+    reports,
+    loading: reportsLoading,
+    saving: isSaving,
+    currentReportId,
+    setCurrentReportId,
+    saveReport,
+    removeReport,
+    loadReport,
+  } = useFirebaseReports();
 
   // PDF Preview state
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -275,102 +232,73 @@ export function InspectionReport() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY);
 
-  // Draft management
-  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<ReportDraft[]>([]);
+  // Draft management (now using Firebase)
   const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
 
-  // Load drafts from localStorage
-  const loadDrafts = useCallback(() => {
-    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
-    if (stored) {
-      try {
-        setDrafts(JSON.parse(stored));
-      } catch {
-        setDrafts([]);
+  // Save current form as draft (using Firebase)
+  const saveDraft = useCallback(async () => {
+    try {
+      await saveReport(
+        {
+          reportNumber,
+          date,
+          propertyAddress,
+          clientName,
+          inspectorName,
+          phone,
+          roofAge,
+          overallCondition: overallCondition === 'N/A' ? 'Good' : overallCondition,
+          recommendedAction,
+          photos,
+          additionalPhotos,
+          status: 'draft',
+        },
+        currentReportId
+      );
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 2000);
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+    }
+  }, [saveReport, currentReportId, reportNumber, date, propertyAddress, clientName, inspectorName, phone, roofAge, overallCondition, recommendedAction, photos, additionalPhotos]);
+
+  // Load a report into the form (using Firebase)
+  const loadDraftFromFirebase = useCallback((reportId: string) => {
+    const data = loadReport(reportId);
+    if (data) {
+      setReportNumber(data.reportNumber);
+      setDate(data.date);
+      setPropertyAddress(data.propertyAddress);
+      setClientName(data.clientName);
+      setInspectorName(data.inspectorName);
+      setPhone(data.phone);
+      setRoofAge(data.roofAge);
+      setOverallCondition(data.overallCondition);
+      setRecommendedAction(data.recommendedAction);
+
+      // Merge loaded photos with slot defaults
+      const mergedPhotos: PhotoState = {};
+      PHOTO_SLOTS.forEach(slot => {
+        mergedPhotos[slot.id] = data.photos[slot.id] || { url: null, condition: 'N/A', notes: '', label: slot.label };
+      });
+      setPhotos(mergedPhotos);
+      setAdditionalPhotos(data.additionalPhotos);
+      setShowDraftsModal(false);
+    }
+  }, [loadReport]);
+
+  // Delete a report (using Firebase)
+  const deleteDraft = useCallback(async (reportId: string) => {
+    try {
+      await removeReport(reportId);
+      if (currentReportId === reportId) {
+        setCurrentReportId(null);
       }
+    } catch (error) {
+      console.error('Failed to delete report:', error);
     }
-  }, []);
-
-  // Save current form as draft
-  const saveDraft = useCallback(() => {
-    const draftId = currentDraftId || `draft-${Date.now()}`;
-    const draft: ReportDraft = {
-      id: draftId,
-      savedAt: new Date().toISOString(),
-      reportNumber,
-      date,
-      propertyAddress,
-      clientName,
-      inspectorName,
-      phone,
-      roofAge,
-      overallCondition,
-      recommendedAction,
-      photos,
-      additionalPhotos,
-    };
-
-    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
-    let existingDrafts: ReportDraft[] = [];
-    if (stored) {
-      try {
-        existingDrafts = JSON.parse(stored);
-      } catch {
-        existingDrafts = [];
-      }
-    }
-
-    // Update existing or add new
-    const draftIndex = existingDrafts.findIndex(d => d.id === draftId);
-    if (draftIndex >= 0) {
-      existingDrafts[draftIndex] = draft;
-    } else {
-      existingDrafts.unshift(draft);
-    }
-
-    localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(existingDrafts));
-    setDrafts(existingDrafts);
-    setCurrentDraftId(draftId);
-    setDraftSaved(true);
-    setTimeout(() => setDraftSaved(false), 2000);
-  }, [currentDraftId, reportNumber, date, propertyAddress, clientName, inspectorName, phone, roofAge, overallCondition, recommendedAction, photos, additionalPhotos]);
-
-  // Load a draft into the form
-  const loadDraft = useCallback((draft: ReportDraft) => {
-    setReportNumber(draft.reportNumber);
-    setDate(draft.date);
-    setPropertyAddress(draft.propertyAddress);
-    setClientName(draft.clientName);
-    setInspectorName(draft.inspectorName);
-    setPhone(draft.phone);
-    setRoofAge(draft.roofAge);
-    setOverallCondition(draft.overallCondition);
-    setRecommendedAction(draft.recommendedAction);
-    setPhotos(draft.photos);
-    setAdditionalPhotos(draft.additionalPhotos);
-    setCurrentDraftId(draft.id);
-    setShowDraftsModal(false);
-  }, []);
-
-  // Delete a draft
-  const deleteDraft = useCallback((draftId: string) => {
-    const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
-    if (stored) {
-      try {
-        const existingDrafts: ReportDraft[] = JSON.parse(stored);
-        const filtered = existingDrafts.filter(d => d.id !== draftId);
-        localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(filtered));
-        setDrafts(filtered);
-        if (currentDraftId === draftId) {
-          setCurrentDraftId(null);
-        }
-      } catch {
-        // Ignore
-      }
-    }
-  }, [currentDraftId]);
+  }, [removeReport, currentReportId, setCurrentReportId]);
 
   // Start new report (clear form)
   const startNewReport = useCallback(() => {
@@ -389,11 +317,11 @@ export function InspectionReport() {
     });
     setPhotos(initial);
     setAdditionalPhotos([]);
-    setCurrentDraftId(null);
+    setCurrentReportId(null);
     setShowDraftsModal(false);
-  }, []);
+  }, [setCurrentReportId]);
 
-  // Load company branding and drafts on mount
+  // Load company branding on mount
   useEffect(() => {
     const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
     if (storedLogo) setLogoUrl(storedLogo);
@@ -406,65 +334,20 @@ export function InspectionReport() {
         // Use default
       }
     }
-
-    loadDrafts();
-  }, [loadDrafts]);
-
-  // Auto-save draft on page unload/close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // Save current form state as draft before page closes
-      const hasContent = propertyAddress || clientName || Object.values(photos).some(p => p.url) || additionalPhotos.length > 0;
-      if (hasContent) {
-        const draftId = currentDraftId || `draft-${Date.now()}`;
-        const draft: ReportDraft = {
-          id: draftId,
-          savedAt: new Date().toISOString(),
-          reportNumber,
-          date,
-          propertyAddress,
-          clientName,
-          inspectorName,
-          phone,
-          roofAge,
-          overallCondition,
-          recommendedAction,
-          photos,
-          additionalPhotos,
-        };
-
-        const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
-        let existingDrafts: ReportDraft[] = [];
-        if (stored) {
-          try {
-            existingDrafts = JSON.parse(stored);
-          } catch {
-            existingDrafts = [];
-          }
-        }
-
-        const draftIndex = existingDrafts.findIndex(d => d.id === draftId);
-        if (draftIndex >= 0) {
-          existingDrafts[draftIndex] = draft;
-        } else {
-          existingDrafts.unshift(draft);
-        }
-
-        localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(existingDrafts));
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [currentDraftId, reportNumber, date, propertyAddress, clientName, inspectorName, phone, roofAge, overallCondition, recommendedAction, photos, additionalPhotos]);
+  }, []);
 
   const handlePhotoUpload = useCallback(async (slotId: string, file: File, label: string) => {
+    if (!user) return;
+
     try {
-      // Compress image for localStorage persistence (handles orientation automatically)
-      const dataUrl = await compressImageForStorage(file);
+      // Upload to Firebase Storage
+      const photoId = `${slotId}-${Date.now()}`;
+      const reportId = currentReportId || `temp-${user.uid}`;
+      const { url, storagePath } = await uploadPhoto(file, reportId, photoId);
+
       setPhotos(prev => ({
         ...prev,
-        [slotId]: { ...prev[slotId], url: dataUrl },
+        [slotId]: { ...prev[slotId], url, storagePath },
       }));
 
       // Save original photo to device camera roll/downloads (non-blocking)
@@ -472,9 +355,9 @@ export function InspectionReport() {
         console.warn('Could not save to device:', err);
       });
     } catch (error) {
-      console.error('Failed to process image:', error);
+      console.error('Failed to upload image:', error);
     }
-  }, []);
+  }, [user, currentReportId]);
 
   const handlePhotoRemove = useCallback((slotId: string) => {
     setPhotos(prev => ({
@@ -499,14 +382,19 @@ export function InspectionReport() {
 
   // Additional photo handlers
   const handleAddPhoto = useCallback(async (file: File, photoNumber: number) => {
+    if (!user) return;
+
     try {
       const label = `Additional Photo ${photoNumber}`;
-      // Compress image for localStorage persistence (handles orientation automatically)
-      const dataUrl = await compressImageForStorage(file);
       const id = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const reportId = currentReportId || `temp-${user.uid}`;
+
+      // Upload to Firebase Storage
+      const { url, storagePath } = await uploadPhoto(file, reportId, id);
+
       setAdditionalPhotos(prev => [
         ...prev,
-        { id, url: dataUrl, condition: 'N/A', notes: '', label },
+        { id, url, storagePath, condition: 'N/A', notes: '', label },
       ]);
 
       // Save original photo to device camera roll/downloads (non-blocking)
@@ -514,9 +402,9 @@ export function InspectionReport() {
         console.warn('Could not save to device:', err);
       });
     } catch (error) {
-      console.error('Failed to process image:', error);
+      console.error('Failed to upload image:', error);
     }
-  }, []);
+  }, [user, currentReportId]);
 
   const handleAdditionalPhotoRemove = useCallback((id: string) => {
     setAdditionalPhotos(prev => prev.filter(p => p.id !== id));
@@ -913,8 +801,8 @@ export function InspectionReport() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">Saved Drafts</h2>
-                <p className="text-xs sm:text-sm text-slate-500">{drafts.length} draft{drafts.length !== 1 ? 's' : ''} available</p>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">Saved Reports</h2>
+                <p className="text-xs sm:text-sm text-slate-500">{reports.length} report{reports.length !== 1 ? 's' : ''} available</p>
               </div>
               <button
                 onClick={() => setShowDraftsModal(false)}
@@ -928,45 +816,60 @@ export function InspectionReport() {
 
             {/* Modal Body */}
             <div className="overflow-y-auto max-h-[50vh]">
-              {drafts.length === 0 ? (
+              {reportsLoading ? (
+                <div className="px-6 py-12 text-center">
+                  <svg className="animate-spin h-8 w-8 text-violet-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <p className="text-slate-500">Loading reports...</p>
+                </div>
+              ) : reports.length === 0 ? (
                 <div className="px-6 py-12 text-center">
                   <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-slate-500">No saved drafts yet</p>
-                  <p className="text-sm text-slate-400 mt-1">Click "Save Draft" to save your work</p>
+                  <p className="text-slate-500">No saved reports yet</p>
+                  <p className="text-sm text-slate-400 mt-1">Click "Save" to save your work</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {drafts.map(draft => (
+                  {reports.map(report => (
                     <div
-                      key={draft.id}
-                      className={`px-6 py-4 hover:bg-slate-50 transition-colors ${currentDraftId === draft.id ? 'bg-violet-50 border-l-4 border-violet-500' : ''}`}
+                      key={report.id}
+                      className={`px-6 py-4 hover:bg-slate-50 transition-colors ${currentReportId === report.id ? 'bg-violet-50 border-l-4 border-violet-500' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-slate-900 truncate">
-                            {draft.propertyAddress || 'Untitled Report'}
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold text-slate-900 truncate">
+                              {report.propertyAddress || 'Untitled Report'}
+                            </div>
+                            {report.status === 'draft' && (
+                              <span className="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">Draft</span>
+                            )}
                           </div>
                           <div className="text-sm text-slate-500 mt-0.5">
-                            {draft.clientName && <span>{draft.clientName} &bull; </span>}
-                            <span>{draft.reportNumber}</span>
+                            {report.clientName && <span>{report.clientName} &bull; </span>}
+                            <span>{report.reportNumber}</span>
                           </div>
                           <div className="text-xs text-slate-400 mt-1">
-                            Saved {new Date(draft.savedAt).toLocaleDateString()} at {new Date(draft.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {report.updatedAt && (
+                              <>Updated {report.updatedAt.toDate().toLocaleDateString()} at {report.updatedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => loadDraft(draft)}
+                            onClick={() => report.id && loadDraftFromFirebase(report.id)}
                             className="px-3 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 text-sm font-medium rounded-lg transition-colors"
                           >
                             Load
                           </button>
                           <button
                             onClick={() => {
-                              if (confirm('Delete this draft?')) {
-                                deleteDraft(draft.id);
+                              if (report.id && confirm('Delete this report?')) {
+                                deleteDraft(report.id);
                               }
                             }}
                             className="p-1.5 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
@@ -1077,10 +980,10 @@ export function InspectionReport() {
             {/* Right: Action buttons */}
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               {/* Draft indicator - desktop only */}
-              {currentDraftId && (
+              {currentReportId && (
                 <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-xs font-medium text-amber-700">Draft</span>
+                  <span className="text-xs font-medium text-amber-700">Editing</span>
                 </div>
               )}
 
@@ -1110,21 +1013,30 @@ export function InspectionReport() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
-                <span className="text-sm hidden sm:inline">Drafts</span>
-                {drafts.length > 0 && (
+                <span className="text-sm hidden sm:inline">Reports</span>
+                {reports.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {drafts.length}
+                    {reports.length}
                   </span>
                 )}
               </button>
 
-              {/* Save Draft */}
+              {/* Save */}
               <button
                 onClick={saveDraft}
-                className="flex items-center gap-1 sm:gap-1.5 p-2 sm:px-3 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
-                title="Save Draft"
+                disabled={isSaving}
+                className="flex items-center gap-1 sm:gap-1.5 p-2 sm:px-3 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors disabled:opacity-50"
+                title="Save Report"
               >
-                {draftSaved ? (
+                {isSaving ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-sm hidden sm:inline">Saving...</span>
+                  </>
+                ) : draftSaved ? (
                   <>
                     <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1172,10 +1084,10 @@ export function InspectionReport() {
           {/* Mobile-only: Photo count and draft indicator */}
           <div className="flex items-center justify-between mt-2 sm:hidden">
             <div className="flex items-center gap-2">
-              {currentDraftId && (
+              {currentReportId && (
                 <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-md">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  <span className="text-[10px] font-medium text-amber-700">Draft</span>
+                  <span className="text-[10px] font-medium text-amber-700">Editing</span>
                 </div>
               )}
               <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-md">
