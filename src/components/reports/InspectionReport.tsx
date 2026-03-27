@@ -8,68 +8,22 @@ import { uploadPhoto } from '../../services/storageService';
 const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
 
-// Helper to save photo to device camera roll/downloads
-async function savePhotoToDevice(file: File, label: string): Promise<void> {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `${label.replace(/\s+/g, '_')}_${timestamp}.jpg`;
-
-  // Try Web Share API first (works on mobile for saving to camera roll)
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({
-        files: [new File([file], filename, { type: file.type })],
-        title: 'Save Photo',
-      });
-      return;
-    } catch (err) {
-      // User cancelled or share failed, fall through to download
-      if ((err as Error).name === 'AbortError') return;
-    }
-  }
-
-  // Fallback: trigger download (saves to Downloads folder)
-  const url = URL.createObjectURL(file);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
 // Helper to load and process image with proper orientation and compression for PDF
 async function processImageForPdf(
   imageUrl: string,
   targetWidth: number,
   targetHeight: number
 ): Promise<{ dataUrl: string; width: number; height: number; x: number; y: number } | null> {
-  try {
-    // Fetch image as blob to avoid CORS issues with Firebase Storage
-    let imgSrc = imageUrl;
+  return new Promise((resolve) => {
+    const img = new Image();
 
-    // If it's a remote URL (Firebase Storage), fetch as blob
-    if (imageUrl.startsWith('http')) {
-      try {
-        const response = await fetch(imageUrl);
-        const blob = await response.blob();
-        imgSrc = URL.createObjectURL(blob);
-      } catch (fetchError) {
-        console.warn('Failed to fetch image, trying direct load:', fetchError);
-        // Fall back to direct URL
-      }
+    // Only set crossOrigin for non-Firebase URLs (data URLs don't need it)
+    if (!imageUrl.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
     }
 
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-
-      img.onload = () => {
-        // Clean up blob URL if we created one
-        if (imgSrc !== imageUrl && imgSrc.startsWith('blob:')) {
-          URL.revokeObjectURL(imgSrc);
-        }
-
+    img.onload = () => {
+      try {
         // Create canvas to process image
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -133,23 +87,19 @@ async function processImageForPdf(
           x: offsetX,
           y: offsetY,
         });
-      };
-
-      img.onerror = () => {
-        // Clean up blob URL if we created one
-        if (imgSrc !== imageUrl && imgSrc.startsWith('blob:')) {
-          URL.revokeObjectURL(imgSrc);
-        }
-        console.warn('Failed to load image:', imageUrl);
+      } catch (err) {
+        console.error('Error processing image:', err);
         resolve(null);
-      };
+      }
+    };
 
-      img.src = imgSrc;
-    });
-  } catch (error) {
-    console.error('Error processing image for PDF:', error);
-    return null;
-  }
+    img.onerror = (err) => {
+      console.warn('Failed to load image for PDF:', imageUrl, err);
+      resolve(null);
+    };
+
+    img.src = imageUrl;
+  });
 }
 
 const DEFAULT_COMPANY: CompanyInfo = {
@@ -376,7 +326,7 @@ export function InspectionReport() {
     }
   }, []);
 
-  const handlePhotoUpload = useCallback(async (slotId: string, file: File, label: string) => {
+  const handlePhotoUpload = useCallback(async (slotId: string, file: File) => {
     if (!user) return;
 
     try {
@@ -389,11 +339,6 @@ export function InspectionReport() {
         ...prev,
         [slotId]: { ...prev[slotId], url, storagePath },
       }));
-
-      // Save original photo to device camera roll/downloads (non-blocking)
-      savePhotoToDevice(file, label).catch(err => {
-        console.warn('Could not save to device:', err);
-      });
     } catch (error) {
       console.error('Failed to upload image:', error);
     }
@@ -436,11 +381,6 @@ export function InspectionReport() {
         ...prev,
         { id, url, storagePath, condition: 'N/A', notes: '', label },
       ]);
-
-      // Save original photo to device camera roll/downloads (non-blocking)
-      savePhotoToDevice(file, label).catch(err => {
-        console.warn('Could not save to device:', err);
-      });
     } catch (error) {
       console.error('Failed to upload image:', error);
     }
@@ -1307,7 +1247,7 @@ export function InspectionReport() {
                       capture="environment"
                       onChange={e => {
                         const file = e.target.files?.[0];
-                        if (file) handlePhotoUpload(slot.id, file, slot.label);
+                        if (file) handlePhotoUpload(slot.id, file);
                         e.target.value = '';
                       }}
                       className="hidden"
