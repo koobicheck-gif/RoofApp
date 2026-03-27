@@ -508,18 +508,15 @@ export function InspectionReport() {
         pdf.text('INSPECTION PHOTOS', margin, y);
         y += 6;
 
-        // Container dimensions based on orientation
-        const landscapeW = contentW; // Full width for landscape
-        const landscapeH = 55; // Shorter height for landscape
-        const portraitW = 65; // Narrower width for portrait
-        const portraitH = 85; // Taller height for portrait
+        // Max dimensions for containers
+        const maxW = contentW;
+        const maxH = 90; // Max height for any photo
 
-        // Pre-process all images to determine orientation
+        // Pre-process all images to get dimensions
         const processedImages = await Promise.all(
           photosWithImages.map(async (photo) => {
             if (!photo.url) return null;
-            // Use larger dimensions for processing, actual size determined by orientation
-            const maxPx = 400 * 3.78;
+            const maxPx = 800;
             return processImageForPdf(photo.url, maxPx, maxPx);
           })
         );
@@ -527,18 +524,46 @@ export function InspectionReport() {
         for (let i = 0; i < photosWithImages.length; i++) {
           const photo = photosWithImages[i];
           const processed = processedImages[i];
-          const isPortrait = processed?.isPortrait ?? false;
 
-          // Set container dimensions based on orientation
-          const containerW = isPortrait ? portraitW : landscapeW;
-          const containerH = isPortrait ? portraitH : landscapeH;
+          // Calculate container size based on image's actual aspect ratio
+          let containerW: number;
+          let containerH: number;
+
+          if (processed) {
+            const imgAspect = processed.drawWidth / processed.drawHeight;
+
+            if (processed.isPortrait) {
+              // Portrait: fit to max height, calculate width from aspect ratio
+              containerH = maxH;
+              containerW = maxH * imgAspect;
+              // Don't exceed max width
+              if (containerW > maxW) {
+                containerW = maxW;
+                containerH = maxW / imgAspect;
+              }
+            } else {
+              // Landscape: fit to max width, calculate height from aspect ratio
+              containerW = maxW;
+              containerH = maxW / imgAspect;
+              // Don't exceed max height
+              if (containerH > maxH) {
+                containerH = maxH;
+                containerW = maxH * imgAspect;
+              }
+            }
+          } else {
+            // Default fallback if no image
+            containerW = maxW;
+            containerH = 55;
+          }
+
           const blockH = containerH + 15; // Container + label + badge space
 
           // Check if we need a new page
           checkPageBreak(blockH + 8);
 
-          // Center portrait containers, landscape spans full width
-          const x = isPortrait ? margin + (contentW - portraitW) / 2 : margin;
+          // Center container on page
+          const x = margin + (contentW - containerW) / 2;
 
           // Photo label
           pdf.setFontSize(8);
@@ -546,41 +571,20 @@ export function InspectionReport() {
           pdf.setTextColor(medGray);
           pdf.text(photo.label.toUpperCase(), x, y + 3);
 
-          // Photo placeholder/container
+          // Photo container - matches image aspect ratio exactly
           pdf.setFillColor('#E2E8F0');
           pdf.rect(x, y + 5, containerW, containerH, 'F');
 
-          // Add the actual image
+          // Add the actual image - fills container completely
           if (processed) {
             try {
-              // Calculate image dimensions to fit container while maintaining aspect ratio
-              const imgAspect = processed.drawWidth / processed.drawHeight;
-              const containerAspect = (containerW - 4) / (containerH - 4);
-
-              let drawWMm: number;
-              let drawHMm: number;
-
-              if (imgAspect > containerAspect) {
-                // Image is wider than container - fit to width
-                drawWMm = containerW - 4;
-                drawHMm = drawWMm / imgAspect;
-              } else {
-                // Image is taller than container - fit to height
-                drawHMm = containerH - 4;
-                drawWMm = drawHMm * imgAspect;
-              }
-
-              // Center within container
-              const offsetXMm = (containerW - drawWMm) / 2;
-              const offsetYMm = (containerH - drawHMm) / 2;
-
               pdf.addImage(
                 processed.dataUrl,
                 'JPEG',
-                x + offsetXMm,
-                y + 5 + offsetYMm,
-                drawWMm,
-                drawHMm,
+                x,
+                y + 5,
+                containerW,
+                containerH,
                 undefined,
                 'FAST'
               );
