@@ -6,6 +6,50 @@ const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
 const DRAFTS_STORAGE_KEY = 'roofapp_report_drafts';
 
+// Helper to compress image for localStorage storage
+async function compressImageForStorage(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      // Calculate new dimensions maintaining aspect ratio
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw image (this also applies EXIF orientation in modern browsers)
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Convert to compressed JPEG
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(dataUrl);
+    };
+
+    img.onerror = () => reject(new Error('Failed to load image'));
+
+    // Read file as data URL first
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 // Helper to load and process image with proper orientation and aspect ratio
 async function processImageForPdf(
   imageUrl: string,
@@ -336,32 +380,65 @@ export function InspectionReport() {
     loadDrafts();
   }, [loadDrafts]);
 
-  // Cleanup object URLs on unmount
+  // Auto-save draft on page unload/close
   useEffect(() => {
-    return () => {
-      Object.values(photos).forEach(photo => {
-        if (photo.url) URL.revokeObjectURL(photo.url);
-      });
-      additionalPhotos.forEach(photo => {
-        if (photo.url) URL.revokeObjectURL(photo.url);
-      });
-    };
-  }, []);
-
-  const handlePhotoUpload = useCallback((slotId: string, file: File) => {
-    // Convert to base64 data URL for localStorage persistence
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setPhotos(prev => {
-        // No need to revoke data URLs (they're not blob URLs)
-        return {
-          ...prev,
-          [slotId]: { ...prev[slotId], url: dataUrl },
+    const handleBeforeUnload = () => {
+      // Save current form state as draft before page closes
+      const hasContent = propertyAddress || clientName || Object.values(photos).some(p => p.url) || additionalPhotos.length > 0;
+      if (hasContent) {
+        const draftId = currentDraftId || `draft-${Date.now()}`;
+        const draft: ReportDraft = {
+          id: draftId,
+          savedAt: new Date().toISOString(),
+          reportNumber,
+          date,
+          propertyAddress,
+          clientName,
+          inspectorName,
+          phone,
+          roofAge,
+          overallCondition,
+          recommendedAction,
+          photos,
+          additionalPhotos,
         };
-      });
+
+        const stored = localStorage.getItem(DRAFTS_STORAGE_KEY);
+        let existingDrafts: ReportDraft[] = [];
+        if (stored) {
+          try {
+            existingDrafts = JSON.parse(stored);
+          } catch {
+            existingDrafts = [];
+          }
+        }
+
+        const draftIndex = existingDrafts.findIndex(d => d.id === draftId);
+        if (draftIndex >= 0) {
+          existingDrafts[draftIndex] = draft;
+        } else {
+          existingDrafts.unshift(draft);
+        }
+
+        localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(existingDrafts));
+      }
     };
-    reader.readAsDataURL(file);
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentDraftId, reportNumber, date, propertyAddress, clientName, inspectorName, phone, roofAge, overallCondition, recommendedAction, photos, additionalPhotos]);
+
+  const handlePhotoUpload = useCallback(async (slotId: string, file: File) => {
+    try {
+      // Compress image for localStorage persistence (handles orientation automatically)
+      const dataUrl = await compressImageForStorage(file);
+      setPhotos(prev => ({
+        ...prev,
+        [slotId]: { ...prev[slotId], url: dataUrl },
+      }));
+    } catch (error) {
+      console.error('Failed to process image:', error);
+    }
   }, []);
 
   const handlePhotoRemove = useCallback((slotId: string) => {
@@ -386,18 +463,18 @@ export function InspectionReport() {
   }, []);
 
   // Additional photo handlers
-  const handleAddPhoto = useCallback((file: File) => {
-    // Convert to base64 data URL for localStorage persistence
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
+  const handleAddPhoto = useCallback(async (file: File) => {
+    try {
+      // Compress image for localStorage persistence (handles orientation automatically)
+      const dataUrl = await compressImageForStorage(file);
       const id = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       setAdditionalPhotos(prev => [
         ...prev,
         { id, url: dataUrl, condition: 'N/A', notes: '', label: `Additional Photo ${prev.length + 1}` },
       ]);
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Failed to process image:', error);
+    }
   }, []);
 
   const handleAdditionalPhotoRemove = useCallback((id: string) => {
@@ -1222,12 +1299,12 @@ export function InspectionReport() {
                       }}
                       className="hidden"
                     />
-                    <div className={`bg-gray-100 ${photos[slot.id]?.url ? '' : 'aspect-[4/3] relative'}`}>
+                    <div className="bg-gray-100 aspect-[4/3] relative flex items-center justify-center">
                       {photos[slot.id]?.url ? (
                         <img
                           src={photos[slot.id].url!}
                           alt={slot.label}
-                          className="w-full h-auto block"
+                          className="max-w-full max-h-full object-contain"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-center text-gray-400">
@@ -1322,11 +1399,11 @@ export function InspectionReport() {
                 <div key={photo.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   {/* Photo */}
                   <div className="relative">
-                    <div className="bg-gray-100">
+                    <div className="bg-gray-100 aspect-[4/3] flex items-center justify-center">
                       <img
                         src={photo.url}
                         alt={photo.label}
-                        className="w-full h-auto block"
+                        className="max-w-full max-h-full object-contain"
                       />
                     </div>
                     <button
