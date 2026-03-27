@@ -44,84 +44,112 @@ async function processImageForPdf(
   targetWidth: number,
   targetHeight: number
 ): Promise<{ dataUrl: string; width: number; height: number; x: number; y: number } | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
+  try {
+    // Fetch image as blob to avoid CORS issues with Firebase Storage
+    let imgSrc = imageUrl;
 
-    img.onload = () => {
-      // Create canvas to process image (this applies EXIF orientation automatically in modern browsers)
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(null);
-        return;
+    // If it's a remote URL (Firebase Storage), fetch as blob
+    if (imageUrl.startsWith('http')) {
+      try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        imgSrc = URL.createObjectURL(blob);
+      } catch (fetchError) {
+        console.warn('Failed to fetch image, trying direct load:', fetchError);
+        // Fall back to direct URL
       }
+    }
 
-      // Use natural dimensions (after browser applies EXIF orientation)
-      let imgWidth = img.naturalWidth;
-      let imgHeight = img.naturalHeight;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
 
-      // Compress: limit max dimension to 800px for PDF (good quality, small file size)
-      const maxDimension = 800;
-      if (imgWidth > maxDimension || imgHeight > maxDimension) {
-        if (imgWidth > imgHeight) {
-          imgHeight = (imgHeight * maxDimension) / imgWidth;
-          imgWidth = maxDimension;
-        } else {
-          imgWidth = (imgWidth * maxDimension) / imgHeight;
-          imgHeight = maxDimension;
+      img.onload = () => {
+        // Clean up blob URL if we created one
+        if (imgSrc !== imageUrl && imgSrc.startsWith('blob:')) {
+          URL.revokeObjectURL(imgSrc);
         }
-      }
 
-      // Calculate aspect ratios for positioning
-      const imgAspect = imgWidth / imgHeight;
-      const targetAspect = targetWidth / targetHeight;
+        // Create canvas to process image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
 
-      let drawWidth: number;
-      let drawHeight: number;
-      let offsetX: number;
-      let offsetY: number;
+        // Use natural dimensions
+        let imgWidth = img.naturalWidth;
+        let imgHeight = img.naturalHeight;
 
-      // Fit image within target bounds while maintaining aspect ratio (contain)
-      if (imgAspect > targetAspect) {
-        // Image is wider than target - fit to width
-        drawWidth = targetWidth;
-        drawHeight = targetWidth / imgAspect;
-        offsetX = 0;
-        offsetY = (targetHeight - drawHeight) / 2;
-      } else {
-        // Image is taller than target - fit to height
-        drawHeight = targetHeight;
-        drawWidth = targetHeight * imgAspect;
-        offsetX = (targetWidth - drawWidth) / 2;
-        offsetY = 0;
-      }
+        // Compress: limit max dimension to 800px for PDF
+        const maxDimension = 800;
+        if (imgWidth > maxDimension || imgHeight > maxDimension) {
+          if (imgWidth > imgHeight) {
+            imgHeight = (imgHeight * maxDimension) / imgWidth;
+            imgWidth = maxDimension;
+          } else {
+            imgWidth = (imgWidth * maxDimension) / imgHeight;
+            imgHeight = maxDimension;
+          }
+        }
 
-      // Set canvas to compressed dimensions
-      canvas.width = Math.round(imgWidth);
-      canvas.height = Math.round(imgHeight);
+        // Calculate aspect ratios for positioning
+        const imgAspect = imgWidth / imgHeight;
+        const targetAspect = targetWidth / targetHeight;
 
-      // Draw image to canvas (applies EXIF orientation)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        let drawWidth: number;
+        let drawHeight: number;
+        let offsetX: number;
+        let offsetY: number;
 
-      // Convert to compressed JPEG (0.7 quality = good balance of quality vs size)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        // Fit image within target bounds while maintaining aspect ratio
+        if (imgAspect > targetAspect) {
+          drawWidth = targetWidth;
+          drawHeight = targetWidth / imgAspect;
+          offsetX = 0;
+          offsetY = (targetHeight - drawHeight) / 2;
+        } else {
+          drawHeight = targetHeight;
+          drawWidth = targetHeight * imgAspect;
+          offsetX = (targetWidth - drawWidth) / 2;
+          offsetY = 0;
+        }
 
-      resolve({
-        dataUrl,
-        width: drawWidth,
-        height: drawHeight,
-        x: offsetX,
-        y: offsetY,
-      });
-    };
+        // Set canvas to compressed dimensions
+        canvas.width = Math.round(imgWidth);
+        canvas.height = Math.round(imgHeight);
 
-    img.onerror = () => {
-      resolve(null);
-    };
+        // Draw image to canvas
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    img.src = imageUrl;
-  });
+        // Convert to compressed JPEG
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+        resolve({
+          dataUrl,
+          width: drawWidth,
+          height: drawHeight,
+          x: offsetX,
+          y: offsetY,
+        });
+      };
+
+      img.onerror = () => {
+        // Clean up blob URL if we created one
+        if (imgSrc !== imageUrl && imgSrc.startsWith('blob:')) {
+          URL.revokeObjectURL(imgSrc);
+        }
+        console.warn('Failed to load image:', imageUrl);
+        resolve(null);
+      };
+
+      img.src = imgSrc;
+    });
+  } catch (error) {
+    console.error('Error processing image for PDF:', error);
+    return null;
+  }
 }
 
 const DEFAULT_COMPANY: CompanyInfo = {
