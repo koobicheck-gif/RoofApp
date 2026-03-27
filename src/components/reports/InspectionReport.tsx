@@ -6,6 +6,36 @@ const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
 const DRAFTS_STORAGE_KEY = 'roofapp_report_drafts';
 
+// Helper to save photo to device camera roll/downloads
+async function savePhotoToDevice(file: File, label: string): Promise<void> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `${label.replace(/\s+/g, '_')}_${timestamp}.jpg`;
+
+  // Try Web Share API first (works on mobile for saving to camera roll)
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [new File([file], filename, { type: file.type })],
+        title: 'Save Photo',
+      });
+      return;
+    } catch (err) {
+      // User cancelled or share failed, fall through to download
+      if ((err as Error).name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: trigger download (saves to Downloads folder)
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 // Helper to compress image for localStorage storage
 async function compressImageForStorage(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -428,7 +458,7 @@ export function InspectionReport() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [currentDraftId, reportNumber, date, propertyAddress, clientName, inspectorName, phone, roofAge, overallCondition, recommendedAction, photos, additionalPhotos]);
 
-  const handlePhotoUpload = useCallback(async (slotId: string, file: File) => {
+  const handlePhotoUpload = useCallback(async (slotId: string, file: File, label: string) => {
     try {
       // Compress image for localStorage persistence (handles orientation automatically)
       const dataUrl = await compressImageForStorage(file);
@@ -436,6 +466,11 @@ export function InspectionReport() {
         ...prev,
         [slotId]: { ...prev[slotId], url: dataUrl },
       }));
+
+      // Save original photo to device camera roll/downloads (non-blocking)
+      savePhotoToDevice(file, label).catch(err => {
+        console.warn('Could not save to device:', err);
+      });
     } catch (error) {
       console.error('Failed to process image:', error);
     }
@@ -463,15 +498,21 @@ export function InspectionReport() {
   }, []);
 
   // Additional photo handlers
-  const handleAddPhoto = useCallback(async (file: File) => {
+  const handleAddPhoto = useCallback(async (file: File, photoNumber: number) => {
     try {
+      const label = `Additional Photo ${photoNumber}`;
       // Compress image for localStorage persistence (handles orientation automatically)
       const dataUrl = await compressImageForStorage(file);
       const id = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       setAdditionalPhotos(prev => [
         ...prev,
-        { id, url: dataUrl, condition: 'N/A', notes: '', label: `Additional Photo ${prev.length + 1}` },
+        { id, url: dataUrl, condition: 'N/A', notes: '', label },
       ]);
+
+      // Save original photo to device camera roll/downloads (non-blocking)
+      savePhotoToDevice(file, label).catch(err => {
+        console.warn('Could not save to device:', err);
+      });
     } catch (error) {
       console.error('Failed to process image:', error);
     }
@@ -1292,9 +1333,10 @@ export function InspectionReport() {
                     <input
                       type="file"
                       accept="image/*"
+                      capture="environment"
                       onChange={e => {
                         const file = e.target.files?.[0];
-                        if (file) handlePhotoUpload(slot.id, file);
+                        if (file) handlePhotoUpload(slot.id, file, slot.label);
                         e.target.value = '';
                       }}
                       className="hidden"
@@ -1374,9 +1416,10 @@ export function InspectionReport() {
               <input
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) handleAddPhoto(file);
+                  if (file) handleAddPhoto(file, additionalPhotos.length + 1);
                   e.target.value = '';
                 }}
                 className="hidden"
