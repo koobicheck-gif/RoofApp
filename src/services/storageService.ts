@@ -109,6 +109,6 @@ export async function deletePhoto(storagePath: string): Promise<void> {
 }
 
 // Delete all photos for a report
-export async function deleteReportPhotos(reportId: string, photos: { storagePath: string }[]): Promise<void> {
+export async function deleteReportPhotos(photos: { storagePath: string }[]): Promise<void> {
   await Promise.all(photos.map((photo) => deletePhoto(photo.storagePath)));
 }
