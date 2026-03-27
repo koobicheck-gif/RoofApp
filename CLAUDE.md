@@ -28,12 +28,35 @@ Roof inspection report app built with React/TypeScript. Allows users to create i
 - **Object-contain**: Images use `object-contain` to fit within containers without distortion
 - **Portrait/landscape support**: Both orientations display correctly within the fixed container
 
+### Firebase Integration (Multi-User Support)
+- **Firebase Auth**: Email/password authentication with login/signup screens
+- **Firestore**: Real-time database for reports - all users see same data
+- **Firebase Storage**: Photos uploaded to cloud storage instead of localStorage
+- **User header**: Shows logged-in user with logout button
+- **Real-time sync**: Reports list updates automatically when any user makes changes
+
 ## Key Files
 - `src/components/reports/InspectionReport.tsx` - Main report component with all photo handling and PDF generation
+- `src/lib/firebase.ts` - Firebase initialization and config
+- `src/contexts/AuthContext.tsx` - Authentication context with login/logout
+- `src/services/reportService.ts` - Firestore CRUD operations for reports
+- `src/services/storageService.ts` - Firebase Storage for photo uploads
+- `src/hooks/useFirebaseReports.ts` - Hook for Firebase report operations
+- `src/components/auth/AuthScreen.tsx` - Login/signup UI
 
 ## Tech Stack
 - React + TypeScript
 - Vite
 - Tailwind CSS
 - jsPDF for PDF generation
-- localStorage for draft persistence
+- **Firebase** (Auth, Firestore, Storage) - Multi-user cloud backend
+
+## Environment Variables (for Netlify)
+```
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+```
