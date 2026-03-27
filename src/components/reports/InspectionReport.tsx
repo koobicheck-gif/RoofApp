@@ -188,7 +188,7 @@ export function InspectionReport() {
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
 
   // Firebase hooks
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const {
     reports,
     loading: reportsLoading,
@@ -1078,6 +1078,25 @@ export function InspectionReport() {
                 </>
               )}
             </button>
+
+              {/* User Menu */}
+              <div className="relative ml-1 sm:ml-2">
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                  title={`Logged in as ${user?.email}`}
+                >
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs sm:text-sm font-semibold">
+                    {user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <span className="hidden lg:block text-sm text-slate-700 max-w-[100px] truncate">
+                    {user?.displayName || user?.email?.split('@')[0]}
+                  </span>
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
