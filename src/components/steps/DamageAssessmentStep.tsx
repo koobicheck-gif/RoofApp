@@ -415,7 +415,6 @@ export function DamageAssessmentStep({ onNext }: DamageAssessmentStepProps) {
             type="file"
             accept="image/*"
             multiple
-            capture="environment"
             onChange={handlePhotoUpload}
             className="hidden"
           />
@@ -543,7 +542,6 @@ export function DamageAssessmentStep({ onNext }: DamageAssessmentStepProps) {
             type="file"
             accept="image/*"
             multiple
-            capture="environment"
             onChange={handlePhotoUpload}
             className="hidden"
           />
@@ -619,7 +617,6 @@ export function DamageAssessmentStep({ onNext }: DamageAssessmentStepProps) {
           type="file"
           accept="image/*"
           multiple
-          capture="environment"
           onChange={handlePhotoUpload}
           className="hidden"
         />

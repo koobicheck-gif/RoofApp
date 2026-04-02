@@ -1261,7 +1261,6 @@ export function InspectionReport() {
                     <input
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       onChange={e => {
                         const file = e.target.files?.[0];
                         if (file) handlePhotoUpload(slot.id, file);
@@ -1344,7 +1343,6 @@ export function InspectionReport() {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) handleAddPhoto(file, additionalPhotos.length + 1);
