@@ -1257,37 +1257,58 @@ export function InspectionReport() {
               <div key={slot.id} className="border border-gray-200 rounded-lg overflow-hidden">
                 {/* Photo upload area */}
                 <div className="relative">
-                  <label className="block cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) handlePhotoUpload(slot.id, file);
-                        e.target.value = '';
-                      }}
-                      className="hidden"
-                    />
-                    <div className="bg-gray-100 aspect-[4/3] relative flex items-center justify-center">
-                      {photos[slot.id]?.url ? (
-                        <img
-                          src={photos[slot.id].url!}
-                          alt={slot.label}
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-center text-gray-400">
-                          <div>
-                            <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <div className="bg-gray-100 aspect-[4/3] relative flex items-center justify-center">
+                    {photos[slot.id]?.url ? (
+                      <img
+                        src={photos[slot.id].url!}
+                        alt={slot.label}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-2">
+                        {/* Camera button */}
+                        <label className="cursor-pointer w-full">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handlePhotoUpload(slot.id, file);
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                          <span className="flex items-center justify-center gap-1 w-full px-2 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs rounded transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <span className="text-xs">Tap to add</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </label>
+                            Camera
+                          </span>
+                        </label>
+                        {/* Library button */}
+                        <label className="cursor-pointer w-full">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handlePhotoUpload(slot.id, file);
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                          <span className="flex items-center justify-center gap-1 w-full px-2 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Library
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
                   {photos[slot.id]?.url && (
                     <button
                       onClick={() => handlePhotoRemove(slot.id)}
@@ -1339,25 +1360,48 @@ export function InspectionReport() {
         <Card>
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Additional Photos</h2>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAddPhoto(file, additionalPhotos.length + 1);
-                  e.target.value = '';
-                }}
-                className="hidden"
-              />
-              <span className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors">
-                <svg className="w-4 h-4 mr-1.5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span className="hidden xs:inline">Add Photo</span>
-                <span className="xs:hidden">Add</span>
-              </span>
-            </label>
+            <div className="flex gap-2">
+              {/* Camera button */}
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAddPhoto(file, additionalPhotos.length + 1);
+                    e.target.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="inline-flex items-center px-2 sm:px-3 py-1.5 sm:py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors">
+                  <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">Camera</span>
+                </span>
+              </label>
+              {/* Library button */}
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAddPhoto(file, additionalPhotos.length + 1);
+                    e.target.value = '';
+                  }}
+                  className="hidden"
+                />
+                <span className="inline-flex items-center px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs sm:text-sm font-medium rounded-lg transition-colors">
+                  <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">Library</span>
+                </span>
+              </label>
+            </div>
           </div>
 
           {additionalPhotos.length === 0 ? (
