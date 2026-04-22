@@ -1387,9 +1387,14 @@ export function InspectionReport() {
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) handleAddPhoto(file, additionalPhotos.length + 1);
+                    const files = e.target.files;
+                    if (files) {
+                      Array.from(files).forEach((file, index) => {
+                        handleAddPhoto(file, additionalPhotos.length + index + 1);
+                      });
+                    }
                     e.target.value = '';
                   }}
                   className="hidden"
