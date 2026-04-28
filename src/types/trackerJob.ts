@@ -90,7 +90,6 @@ export function parseJobText(rawText: string): TrackerJob {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const lineLower = line.toLowerCase();
     const cleanLine = line.replace(/^-\s*/, '').trim();
     const cleanLineLower = cleanLine.toLowerCase();
 
@@ -240,7 +239,7 @@ export function getMaterialsForJob(job: TrackerJob): string[] {
  * Format scope of work from job type and extras
  */
 export function formatScopeOfWork(job: TrackerJob): string {
-  const items = [job.jobType];
+  const items: string[] = [job.jobType];
   items.push(...job.extras);
   return items.join('\n- ');
 }
