@@ -330,7 +330,10 @@ export function InspectionReport() {
   }, []);
 
   const handlePhotoUpload = useCallback(async (slotId: string, file: File) => {
-    if (!user) return;
+    if (!user) {
+      alert('Please log in to upload photos');
+      return;
+    }
 
     try {
       // Upload to Firebase Storage
@@ -344,6 +347,7 @@ export function InspectionReport() {
       }));
     } catch (error) {
       console.error('Failed to upload image:', error);
+      alert('Failed to upload photo. Please try again.');
     }
   }, [user, currentReportId]);
 
@@ -370,7 +374,10 @@ export function InspectionReport() {
 
   // Additional photo handlers
   const handleAddPhoto = useCallback(async (file: File, photoNumber: number) => {
-    if (!user) return;
+    if (!user) {
+      alert('Please log in to upload photos');
+      return;
+    }
 
     try {
       const label = `Additional Photo ${photoNumber}`;
@@ -386,6 +393,7 @@ export function InspectionReport() {
       ]);
     } catch (error) {
       console.error('Failed to upload image:', error);
+      alert('Failed to upload photo. Please try again.');
     }
   }, [user, currentReportId]);
 
