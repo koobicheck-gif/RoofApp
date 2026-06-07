@@ -12,6 +12,7 @@ import { ReferralsDashboard } from './components/referrals';
 import { InspectionReportDashboard } from './components/reports';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { ToastProvider } from './components/ui';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type View = 'list' | 'wizard' | 'admin' | 'jobs' | 'referrals' | 'reports';
 
@@ -144,9 +145,11 @@ function AuthenticatedApp() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AuthenticatedApp />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AuthenticatedApp />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

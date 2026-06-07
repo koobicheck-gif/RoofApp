@@ -317,7 +317,7 @@ export function ReviewStep() {
           {isCommercial && estimate.flatRoofDetails && (
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-2">Flat Roof Condition</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-gray-500">Total Area:</span>{' '}
                   <span className="text-gray-900">{estimate.flatRoofDetails.totalArea.toLocaleString()} sq ft</span>
@@ -907,7 +907,7 @@ export function ReviewStep() {
             title="Attached Photos"
             subtitle={`${estimate.photos.length} photo${estimate.photos.length > 1 ? 's' : ''} attached`}
           />
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {estimate.photos.slice(0, 6).map((photo) => (
               <img
                 key={photo.id}

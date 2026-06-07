@@ -4,6 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import { registerServiceWorker } from './utils/serviceWorker'
 import { initDB } from './utils/offlineStorage'
+import { initErrorTracking } from './utils/errorTracking'
+
+// Initialize error tracking
+initErrorTracking();
 
 // Initialize offline support
 async function initOffline() {
