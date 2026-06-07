@@ -11,6 +11,7 @@ import { JobsDashboard } from './components/jobs';
 import { ReferralsDashboard } from './components/referrals';
 import { InspectionReportDashboard } from './components/reports';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { ToastProvider } from './components/ui';
 
 type View = 'list' | 'wizard' | 'admin' | 'jobs' | 'referrals' | 'reports';
 
@@ -127,15 +128,17 @@ function AuthenticatedApp() {
   }
 
   return (
-    <PricingProvider>
-      <EstimateProvider>
-        <JobsProvider>
-          <ReferralsProvider>
-            <AppContent />
-          </ReferralsProvider>
-        </JobsProvider>
-      </EstimateProvider>
-    </PricingProvider>
+    <ToastProvider>
+      <PricingProvider>
+        <EstimateProvider>
+          <JobsProvider>
+            <ReferralsProvider>
+              <AppContent />
+            </ReferralsProvider>
+          </JobsProvider>
+        </EstimateProvider>
+      </PricingProvider>
+    </ToastProvider>
   );
 }
 
