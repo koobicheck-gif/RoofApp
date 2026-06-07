@@ -37,7 +37,16 @@ export async function updateSyncItem(item: SyncQueueItem): Promise<void> {
   await put(STORES.syncQueue, item);
 }
 
-// Process sync queue when online
+/**
+ * Process sync queue when online.
+ *
+ * NOTE: This is a placeholder implementation. Currently the app uses:
+ * - Firebase for reports (real-time sync)
+ * - localStorage for estimates (local-only)
+ *
+ * This queue is designed for future offline-first sync with a custom backend.
+ * For now, it clears items from the queue without actual syncing.
+ */
 export async function processSyncQueue(): Promise<{
   success: number;
   failed: number;
@@ -48,8 +57,10 @@ export async function processSyncQueue(): Promise<{
 
   for (const item of items) {
     try {
-      // Future: send to backend API
-      // For now, just mark as synced (since we're local-only)
+      // TODO: When backend API is implemented, sync here:
+      // await syncToBackend(item);
+
+      // For now, clear from queue (data is already persisted locally)
       await removeSyncItem(item.id!);
       success++;
     } catch (error) {
@@ -58,6 +69,10 @@ export async function processSyncQueue(): Promise<{
       await updateSyncItem(item);
       failed++;
     }
+  }
+
+  if (success > 0) {
+    markSyncComplete();
   }
 
   return { success, failed };

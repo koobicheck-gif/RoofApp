@@ -247,19 +247,30 @@ export function sanitizeEmail(email: string): string {
 }
 
 export function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  // RFC 5322 compliant email regex (simplified but robust)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  return email.length <= 254 && emailRegex.test(email);
 }
 
 export function validatePhone(phone: string): boolean {
-  // At least 10 digits
+  // Support US (10 digits) and international (with + prefix, 7-15 digits)
   const digits = phone.replace(/\D/g, '');
-  return digits.length >= 10;
+  const hasCountryCode = phone.trim().startsWith('+');
+
+  if (hasCountryCode) {
+    // International: 7-15 digits (E.164 standard)
+    return digits.length >= 7 && digits.length <= 15;
+  }
+  // US: exactly 10 digits
+  return digits.length === 10;
 }
 
 export function validateZip(zip: string): boolean {
-  // US ZIP code: 5 digits or 5+4 format
-  return /^\d{5}(-\d{4})?$/.test(zip);
+  // US ZIP: 5 digits or 5+4 format
+  // Canadian postal: A1A 1A1 format
+  const usZip = /^\d{5}(-\d{4})?$/;
+  const canadianPostal = /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/;
+  return usZip.test(zip) || canadianPostal.test(zip);
 }
 
 export function sanitizeCustomer(customer: {

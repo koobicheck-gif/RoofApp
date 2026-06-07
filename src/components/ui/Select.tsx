@@ -22,9 +22,13 @@ export function Select({
   className = '',
   id,
   onChange,
+  required,
   ...props
 }: SelectProps) {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const errorId = error ? `${inputId}-error` : undefined;
+  const helpId = helpText && !error ? `${inputId}-help` : undefined;
+  const describedBy = [errorId, helpId].filter(Boolean).join(' ') || undefined;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onChange?.(e.target.value);
@@ -35,10 +39,14 @@ export function Select({
       {label && (
         <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
           {label}
+          {required && <span className="text-red-500 ml-1" aria-hidden="true">*</span>}
         </label>
       )}
       <select
         id={inputId}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
+        aria-required={required}
         className={`
           w-full px-4 py-3 text-base border rounded-lg touch-target appearance-none
           bg-white bg-no-repeat bg-right
@@ -54,6 +62,7 @@ export function Select({
           paddingRight: '48px',
         }}
         onChange={handleChange}
+        required={required}
         {...props}
       >
         {options.map((option) => (
@@ -63,9 +72,9 @@ export function Select({
         ))}
       </select>
       {helpText && !error && (
-        <p className="text-sm text-gray-500">{helpText}</p>
+        <p id={helpId} className="text-sm text-gray-500">{helpText}</p>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p id={errorId} className="text-sm text-red-600" role="alert">{error}</p>}
     </div>
   );
 }
@@ -86,16 +95,20 @@ export function CardSelect({ label, options, value, onChange, columns = 1 }: Car
     3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
   };
 
+  const groupId = label?.toLowerCase().replace(/\s+/g, '-') || 'card-select';
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="radiogroup" aria-labelledby={label ? `${groupId}-label` : undefined}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <label id={`${groupId}-label`} className="block text-sm font-medium text-gray-700">{label}</label>
       )}
       <div className={`grid gap-3 ${gridCols[columns]}`}>
         {options.map((option) => (
           <button
             key={option.value}
             type="button"
+            role="radio"
+            aria-checked={value === option.value}
             onClick={() => onChange(option.value)}
             className={`
               p-4 text-left border-2 rounded-lg transition-all touch-target

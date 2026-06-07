@@ -29,14 +29,14 @@ export interface GHLContact {
   city: string;
   state: string;
   postalCode: string;
-  locationId: string;
+  locationId?: string; // Added server-side by proxy
   tags?: string[];
 }
 
 export interface GHLOpportunity {
   pipelineId: string;
   pipelineStageId: string;
-  locationId: string;
+  locationId?: string; // Added server-side by proxy
   contactId: string;
   name: string;
   status: 'open' | 'won' | 'lost' | 'abandoned';

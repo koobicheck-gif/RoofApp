@@ -43,8 +43,6 @@ export function useGHL(): UseGHLReturn {
     setError(null);
 
     try {
-      const locationId = import.meta.env.VITE_GHL_LOCATION_ID;
-
       // 1. Get pipeline info (cached after first call)
       const { pipelineId, stageId } = await getSalesPipelineInfo();
 
@@ -56,7 +54,7 @@ export function useGHL(): UseGHLReturn {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      // 4. Create or update contact
+      // 4. Create or update contact (locationId added server-side by proxy)
       const contactData = {
         firstName,
         lastName,
@@ -66,7 +64,6 @@ export function useGHL(): UseGHLReturn {
         city: estimate.customer.city,
         state: estimate.customer.state,
         postalCode: estimate.customer.zip,
-        locationId,
         tags: ['RoofApp', 'Estimate Approved'],
       };
 
@@ -76,11 +73,10 @@ export function useGHL(): UseGHLReturn {
         contactId = await createContact(contactData);
       }
 
-      // 5. Create opportunity
+      // 5. Create opportunity (locationId added server-side by proxy)
       const opportunityId = await createOpportunity({
         pipelineId,
         pipelineStageId: stageId,
-        locationId,
         contactId,
         name: `Roof Repair - ${estimate.estimateNumber}`,
         status: 'open',

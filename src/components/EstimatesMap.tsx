@@ -25,10 +25,26 @@ interface EstimatesMapProps {
   onSelectEstimate?: (id: string) => void;
 }
 
-// Simple geocoding cache
-const geocodeCache: Record<string, { lat: number; lng: number } | null> = {};
+// Persistent geocoding cache (localStorage + memory)
+const GEOCODE_CACHE_KEY = 'roofapp_geocode_cache';
+const geocodeCache: Record<string, { lat: number; lng: number } | null> = (() => {
+  try {
+    const cached = localStorage.getItem(GEOCODE_CACHE_KEY);
+    return cached ? JSON.parse(cached) : {};
+  } catch {
+    return {};
+  }
+})();
 
-// Geocode address using free Nominatim API with rate limiting
+function saveGeocodeCache() {
+  try {
+    localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(geocodeCache));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Geocode address using free Nominatim API with rate limiting and persistent cache
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   if (geocodeCache[address] !== undefined) {
     return geocodeCache[address];
@@ -48,6 +64,7 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 
     if (!response.ok) {
       geocodeCache[address] = null;
+      saveGeocodeCache();
       return null;
     }
 
@@ -58,10 +75,12 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
         lng: parseFloat(data[0].lon),
       };
       geocodeCache[address] = result;
+      saveGeocodeCache();
       return result;
     }
 
     geocodeCache[address] = null;
+    saveGeocodeCache();
     return null;
   } catch (error) {
     console.error('Geocoding failed:', error);
