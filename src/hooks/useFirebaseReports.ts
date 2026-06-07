@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   subscribeToReports,
@@ -74,13 +74,38 @@ export function useFirebaseReports() {
     return () => unsubscribe();
   }, [user]);
 
-  // Upload a photo and return the URL
+  // Track uploaded photos for cleanup if save fails
+  const pendingUploadsRef = useRef<Map<string, string[]>>(new Map());
+
+  // Upload a photo and return the URL (tracks for potential cleanup)
   const uploadReportPhoto = useCallback(async (
     file: File,
     reportId: string,
     photoId: string
   ): Promise<{ url: string; storagePath: string }> => {
-    return uploadPhoto(file, reportId, photoId);
+    const result = await uploadPhoto(file, reportId, photoId);
+
+    // Track this upload for potential cleanup
+    const existing = pendingUploadsRef.current.get(reportId) || [];
+    existing.push(result.storagePath);
+    pendingUploadsRef.current.set(reportId, existing);
+
+    return result;
+  }, []);
+
+  // Clean up orphaned uploads if Firestore save fails
+  const cleanupOrphanedUploads = useCallback(async (reportId: string) => {
+    const paths = pendingUploadsRef.current.get(reportId);
+    if (paths && paths.length > 0) {
+      for (const path of paths) {
+        try {
+          await deletePhoto(path);
+        } catch (e) {
+          console.error('Failed to cleanup orphaned photo:', path, e);
+        }
+      }
+      pendingUploadsRef.current.delete(reportId);
+    }
   }, []);
 
   // Save a report (create or update)
@@ -135,13 +160,23 @@ export function useFirebaseReports() {
         status: data.status,
       };
 
-      if (reportId) {
-        await updateReport(reportId, reportData, user.uid);
-        return reportId;
-      } else {
-        const newId = await createReport(reportData, user.uid);
-        setCurrentReportId(newId);
-        return newId;
+      const targetId = reportId || 'new-' + Date.now();
+
+      try {
+        if (reportId) {
+          await updateReport(reportId, reportData, user.uid);
+          pendingUploadsRef.current.delete(reportId);
+          return reportId;
+        } else {
+          const newId = await createReport(reportData, user.uid);
+          setCurrentReportId(newId);
+          pendingUploadsRef.current.delete(targetId);
+          return newId;
+        }
+      } catch (error) {
+        // Clean up any uploaded photos if Firestore save failed
+        await cleanupOrphanedUploads(targetId);
+        throw error;
       }
     } finally {
       setSaving(false);

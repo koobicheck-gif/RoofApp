@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { rateLimitedFetch } from '../utils/rateLimiter';
 
 interface WeatherData {
   temperature: number;
@@ -136,8 +137,9 @@ export function WeatherBanner() {
 
         setLocation(coords);
 
-        // Fetch weather from Open-Meteo API (including hourly data)
-        const response = await fetch(
+        // Fetch weather from Open-Meteo API (including hourly data) with rate limiting
+        const response = await rateLimitedFetch(
+          'weather',
           `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,is_day,uv_index&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_hours=12`
         );
 
@@ -183,10 +185,11 @@ export function WeatherBanner() {
           setHourlyForecast(hourly);
         }
 
-        // Reverse geocode to get city name if not set
+        // Reverse geocode to get city name if not set (with rate limiting)
         if (!coords.city) {
           try {
-            const geoResponse = await fetch(
+            const geoResponse = await rateLimitedFetch(
+              'nominatim',
               `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json`
             );
             const geoData = await geoResponse.json();

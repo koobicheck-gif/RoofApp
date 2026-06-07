@@ -1,24 +1,21 @@
 // GoHighLevel CRM API Service
+// All API calls are proxied through Netlify Functions to keep API key secure
 
-const GHL_BASE_URL = 'https://rest.gohighlevel.com/v1';
+const PROXY_URL = '/.netlify/functions/ghl-proxy';
 
-function getHeaders() {
-  const apiKey = import.meta.env.VITE_GHL_API_KEY;
-  if (!apiKey) {
-    throw new Error('VITE_GHL_API_KEY is not configured');
+async function callProxy<T>(action: string, data?: unknown): Promise<T> {
+  const response = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, data }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || `GHL API error: ${response.status}`);
   }
-  return {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-  };
-}
 
-function getLocationId(): string {
-  const locationId = import.meta.env.VITE_GHL_LOCATION_ID;
-  if (!locationId) {
-    throw new Error('VITE_GHL_LOCATION_ID is not configured');
-  }
-  return locationId;
+  return response.json();
 }
 
 // Types
@@ -74,50 +71,24 @@ export interface GHLOpportunityResponse {
 // API Functions
 
 export async function getPipelines(): Promise<GHLPipeline[]> {
-  const response = await fetch(`${GHL_BASE_URL}/pipelines/`, {
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch pipelines: ${response.status}`);
-  }
-
-  const data: GHLPipelinesResponse = await response.json();
+  const data = await callProxy<GHLPipelinesResponse>('getPipelines');
   return data.pipelines || [];
 }
 
 export async function findContactByEmail(email: string): Promise<string | null> {
-  const locationId = getLocationId();
-  const response = await fetch(
-    `${GHL_BASE_URL}/contacts/?locationId=${locationId}&query=${encodeURIComponent(email)}`,
-    { headers: getHeaders() }
-  );
-
-  if (!response.ok) {
-    if (response.status === 404) return null;
-    throw new Error(`Failed to search contacts: ${response.status}`);
+  try {
+    const data = await callProxy<GHLContactResponse>('findContact', { email });
+    const matchingContact = data.contacts?.find(
+      c => c.email?.toLowerCase() === email.toLowerCase()
+    );
+    return matchingContact?.id || null;
+  } catch {
+    return null;
   }
-
-  const data: GHLContactResponse = await response.json();
-  const matchingContact = data.contacts?.find(
-    c => c.email?.toLowerCase() === email.toLowerCase()
-  );
-  return matchingContact?.id || null;
 }
 
 export async function createContact(contact: Omit<GHLContact, 'id'>): Promise<string> {
-  const response = await fetch(`${GHL_BASE_URL}/contacts/`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(contact),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create contact: ${response.status} - ${errorText}`);
-  }
-
-  const data: GHLContactResponse = await response.json();
+  const data = await callProxy<GHLContactResponse>('createContact', contact);
   if (!data.contact?.id) {
     throw new Error('No contact ID returned from GHL');
   }
@@ -125,30 +96,11 @@ export async function createContact(contact: Omit<GHLContact, 'id'>): Promise<st
 }
 
 export async function updateContact(contactId: string, contact: Partial<GHLContact>): Promise<void> {
-  const response = await fetch(`${GHL_BASE_URL}/contacts/${contactId}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify(contact),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to update contact: ${response.status}`);
-  }
+  await callProxy('updateContact', { contactId, contact });
 }
 
 export async function createOpportunity(opportunity: GHLOpportunity): Promise<string> {
-  const response = await fetch(`${GHL_BASE_URL}/pipelines/${opportunity.pipelineId}/opportunities`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(opportunity),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create opportunity: ${response.status} - ${errorText}`);
-  }
-
-  const data: GHLOpportunityResponse = await response.json();
+  const data = await callProxy<GHLOpportunityResponse>('createOpportunity', opportunity);
   return data.id;
 }
 
@@ -183,7 +135,7 @@ export async function getSalesPipelineInfo(): Promise<{ pipelineId: string; stag
   return cachedPipelineInfo;
 }
 
-// Check if GHL is configured
+// Check if GHL is configured (server-side env vars, so we assume configured in production)
 export function isGHLConfigured(): boolean {
-  return !!(import.meta.env.VITE_GHL_API_KEY && import.meta.env.VITE_GHL_LOCATION_ID);
+  return import.meta.env.PROD || import.meta.env.VITE_GHL_ENABLED === 'true';
 }

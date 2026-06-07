@@ -5,6 +5,7 @@ import { Card } from './ui';
 import { useAllEstimates } from '../context/EstimateContext';
 import { usePricing } from '../context/PricingContext';
 import { calculateEstimate, formatCurrency } from '../utils/calculateEstimate';
+import { rateLimitedFetch } from '../utils/rateLimiter';
 import type { Estimate } from '../types';
 
 // Fix Leaflet default marker icon issue
@@ -27,7 +28,7 @@ interface EstimatesMapProps {
 // Simple geocoding cache
 const geocodeCache: Record<string, { lat: number; lng: number } | null> = {};
 
-// Geocode address using free Nominatim API
+// Geocode address using free Nominatim API with rate limiting
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   if (geocodeCache[address] !== undefined) {
     return geocodeCache[address];
@@ -35,7 +36,8 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 
   try {
     const encoded = encodeURIComponent(address);
-    const response = await fetch(
+    const response = await rateLimitedFetch(
+      'nominatim',
       `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1`,
       {
         headers: {
@@ -158,9 +160,6 @@ export function EstimatesMap({ onSelectEstimate }: EstimatesMapProps) {
             lng: coords.lng,
           });
         }
-
-        // Rate limit to avoid Nominatim limits
-        await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
       setGeocodedEstimates(results);

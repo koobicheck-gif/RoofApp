@@ -1,5 +1,7 @@
 // Reverse geocoding utility using OpenStreetMap Nominatim API
 
+import { rateLimitedFetch } from './rateLimiter';
+
 export interface ReverseGeocodeResult {
   formattedAddress: string;
   houseNumber?: string;
@@ -14,7 +16,9 @@ export async function reverseGeocode(
   lng: number
 ): Promise<ReverseGeocodeResult | null> {
   try {
-    const response = await fetch(
+    // Use rate-limited fetch to respect Nominatim's 1 request/second policy
+    const response = await rateLimitedFetch(
+      'nominatim',
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
       {
         headers: {
