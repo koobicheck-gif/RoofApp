@@ -4,6 +4,7 @@ import type { CompanyInfo } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFirebaseReports } from '../../hooks/useFirebaseReports';
 import { uploadPhoto } from '../../services/storageService';
+import { reverseGeocode } from '../../utils/reverseGeocode';
 
 const LOGO_STORAGE_KEY = 'roofapp_company_logo';
 const COMPANY_STORAGE_KEY = 'roofapp_company_info';
@@ -208,6 +209,11 @@ export function InspectionReport() {
   const [roofAge, setRoofAge] = useState('');
   const [overallCondition, setOverallCondition] = useState<ConditionType>('Good');
   const [recommendedAction, setRecommendedAction] = useState('');
+
+  // Geolocation state
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [showManualEntryPrompt, setShowManualEntryPrompt] = useState(false);
 
   // Photo state for fixed slots
   const [photos, setPhotos] = useState<PhotoState>(() => {
@@ -417,6 +423,48 @@ export function InspectionReport() {
     setAdditionalPhotos(prev =>
       prev.map(p => (p.id === id ? { ...p, label } : p))
     );
+  }, []);
+
+  const handleUseMyLocation = useCallback(async () => {
+    setIsGettingLocation(true);
+    setLocationError(null);
+    setShowManualEntryPrompt(false);
+
+    try {
+      if (!('geolocation' in navigator)) {
+        setLocationError('Location not supported on this browser.');
+        return;
+      }
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+      });
+
+      const result = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+
+      if (result && result.formattedAddress) {
+        setPropertyAddress(result.formattedAddress);
+      } else {
+        setShowManualEntryPrompt(true);
+      }
+    } catch (err: unknown) {
+      const geoErr = err as GeolocationPositionError;
+      if (geoErr.code === 1) {
+        setLocationError('Location permission denied.');
+      } else if (geoErr.code === 2) {
+        setLocationError('Location unavailable.');
+      } else if (geoErr.code === 3) {
+        setLocationError('Location request timed out.');
+      } else {
+        setLocationError('Could not get location.');
+      }
+    } finally {
+      setIsGettingLocation(false);
+    }
   }, []);
 
   const handlePreviewPDF = async () => {
@@ -1188,13 +1236,43 @@ export function InspectionReport() {
           <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
             <div className="col-span-2">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Property Address</label>
-              <input
-                type="text"
-                value={propertyAddress}
-                onChange={e => setPropertyAddress(e.target.value)}
-                placeholder="Full address"
-                className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={propertyAddress}
+                  onChange={e => { setPropertyAddress(e.target.value); setShowManualEntryPrompt(false); }}
+                  placeholder="Full address"
+                  className="flex-1 px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleUseMyLocation}
+                  disabled={isGettingLocation}
+                  className="px-3 py-2 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
+                  title="Use my current location"
+                >
+                  {isGettingLocation ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline text-sm font-medium">{isGettingLocation ? 'Getting...' : 'Location'}</span>
+                </button>
+              </div>
+              {locationError && (
+                <p className="mt-1.5 text-xs text-red-600">{locationError}</p>
+              )}
+              {showManualEntryPrompt && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-800">No street address found. This may be new construction. Please enter the address manually.</p>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Client Name</label>
