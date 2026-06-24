@@ -556,6 +556,26 @@ export function InspectionReport() {
 
       y += 22;
 
+      // ===== RECOMMENDED ACTION =====
+      checkPageBreak(30);
+
+      pdf.setFillColor(lightGray);
+      const actionLines = pdf.splitTextToSize(recommendedAction || 'No recommendations provided.', contentW - 8);
+      const actionBlockH = Math.max(20, 12 + actionLines.length * 4);
+      pdf.rect(margin, y, contentW, actionBlockH, 'F');
+
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(medGray);
+      pdf.text('RECOMMENDED ACTION', margin + 4, y + 5);
+
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(darkGray);
+      pdf.text(actionLines, margin + 4, y + 11);
+
+      y += actionBlockH + 6;
+
       // ===== PHOTOS =====
       if (photosWithImages.length > 0) {
         pdf.setFontSize(10);
@@ -721,25 +741,6 @@ export function InspectionReport() {
       pdf.text(`${roofAge || '—'} years`, pageW - margin - 4, y + 9, { align: 'right' });
 
       y += 18;
-
-      // ===== RECOMMENDED ACTION =====
-      checkPageBreak(30);
-
-      pdf.setFillColor(lightGray);
-      pdf.rect(margin, y, contentW, 24, 'F');
-
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(medGray);
-      pdf.text('RECOMMENDED ACTION', margin + 4, y + 5);
-
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(darkGray);
-      const actionLines = pdf.splitTextToSize(recommendedAction || 'No recommendations provided.', contentW - 8);
-      pdf.text(actionLines.slice(0, 3), margin + 4, y + 11);
-
-      y += 28;
 
       // ===== SIGNATURE SECTION =====
       checkPageBreak(30);
@@ -1670,6 +1671,21 @@ export function InspectionReport() {
                   </div>
                 </div>
 
+                {/* Recommended Action */}
+                <div style={{
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: '4px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                }}>
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    Recommended Action
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#0F172A', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                    {recommendedAction || 'No recommendations provided.'}
+                  </div>
+                </div>
+
                 {/* Photo preview - show first 4 */}
                 {photosWithImages.length > 0 && (
                   <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
@@ -1806,21 +1822,6 @@ export function InspectionReport() {
                   </table>
                 </div>
 
-                {/* Recommended Action */}
-                <div style={{
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: '4px',
-                  padding: '12px 16px',
-                  marginBottom: '20px',
-                }}>
-                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    Recommended Action
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#0F172A', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-                    {recommendedAction || 'No recommendations provided.'}
-                  </div>
-                </div>
-
                 {/* Footer */}
                 <div style={{
                   backgroundColor: '#00224a',
@@ -1930,6 +1931,21 @@ export function InspectionReport() {
           </div>
           <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569' }}>
             Client: {clientName || '—'}
+          </div>
+        </div>
+
+        {/* Recommended Action */}
+        <div style={{
+          backgroundColor: '#F8FAFC',
+          borderRadius: '4px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+        }}>
+          <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>
+            Recommended Action
+          </div>
+          <div style={{ fontSize: '10px', color: '#0F172A', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+            {recommendedAction || 'No recommendations provided.'}
           </div>
         </div>
 
@@ -2073,21 +2089,6 @@ export function InspectionReport() {
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          {/* Recommended Action */}
-          <div style={{
-            backgroundColor: '#F8FAFC',
-            borderRadius: '4px',
-            padding: '12px 16px',
-            marginBottom: '20px',
-          }}>
-            <div style={{ fontSize: '10px', fontWeight: '600', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>
-              Recommended Action
-            </div>
-            <div style={{ fontSize: '10px', color: '#0F172A', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-              {recommendedAction || 'No recommendations provided.'}
-            </div>
           </div>
 
           {/* Signature line */}
