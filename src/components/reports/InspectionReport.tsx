@@ -176,6 +176,74 @@ function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function parseBidLineItems(scope: string): Array<{ title: string; description: string }> {
+  if (!scope?.trim()) {
+    return [
+      { title: 'COMPLETE CLEANUP', description: 'Complete cleanup of the work area and remove all job-related debris from the property.' },
+      { title: 'FINAL INSPECTION', description: 'Perform a final quality inspection to verify all repairs have been completed properly.' },
+    ];
+  }
+  const lines = scope
+    .split('\n')
+    .map(l => l.replace(/^[\s\-•*\d.)[\]]+\s*/, '').trim())
+    .filter(l => l.length > 2);
+  if (lines.length === 0) {
+    return [{ title: scope.substring(0, 60).toUpperCase(), description: '' }];
+  }
+  return lines.map(line => {
+    const firstDot = line.search(/[.!?]/);
+    if (firstDot > 10 && firstDot < 80 && line.length > firstDot + 5) {
+      return {
+        title: line.substring(0, firstDot).toUpperCase().trim(),
+        description: line.substring(firstDot + 1).trim(),
+      };
+    }
+    return {
+      title: line.length > 70 ? line.substring(0, 67).toUpperCase() + '...' : line.toUpperCase(),
+      description: '',
+    };
+  });
+}
+
+function drawBidIcon(pdf: { setDrawColor: (c: string) => void; setFillColor: (c: string) => void; setLineWidth: (w: number) => void; line: (x1: number, y1: number, x2: number, y2: number) => void; rect: (x: number, y: number, w: number, h: number, style: string) => void; circle: (x: number, y: number, r: number, style: string) => void }, cx: number, cy: number, index: number) {
+  pdf.setDrawColor('#ffffff');
+  pdf.setFillColor('#ffffff');
+  pdf.setLineWidth(0.7);
+  const idx = index % 6;
+  if (idx === 0) {
+    // Shingles: stacked rects
+    pdf.rect(cx - 3.5, cy - 3.5, 7, 2.5, 'F');
+    pdf.rect(cx - 3.5, cy - 0.5, 7, 2.5, 'F');
+    pdf.rect(cx - 3.5, cy + 2.5, 7, 2.5, 'F');
+  } else if (idx === 1) {
+    // Nail + drip
+    pdf.line(cx, cy - 4, cx, cy + 2);
+    pdf.line(cx - 2.5, cy - 4, cx + 2.5, cy - 4);
+    pdf.circle(cx, cy + 3.5, 1.2, 'F');
+  } else if (idx === 2) {
+    // Caulk/sealant tube
+    pdf.rect(cx - 1.5, cy - 4, 3, 5.5, 'F');
+    pdf.rect(cx - 3, cy + 1.5, 6, 2.5, 'F');
+    pdf.line(cx, cy + 4, cx, cy + 5);
+  } else if (idx === 3) {
+    // Clipboard with check
+    pdf.rect(cx - 3.5, cy - 4, 7, 8.5, 'S');
+    pdf.rect(cx - 1.5, cy - 5, 3, 2, 'F');
+    pdf.line(cx - 1.5, cy + 0.5, cx - 0.2, cy + 2);
+    pdf.line(cx - 0.2, cy + 2, cx + 2, cy - 1.5);
+  } else if (idx === 4) {
+    // Broom / brush
+    pdf.line(cx + 2, cy - 4.5, cx - 1, cy + 2);
+    pdf.rect(cx - 3, cy + 2, 5, 2.5, 'F');
+  } else {
+    // Ridge cap / chevron
+    pdf.line(cx - 3.5, cy + 2, cx, cy - 3);
+    pdf.line(cx, cy - 3, cx + 3.5, cy + 2);
+    pdf.line(cx - 3.5, cy + 4.5, cx, cy - 0.5);
+    pdf.line(cx, cy - 0.5, cx + 3.5, cy + 4.5);
+  }
+}
+
 export function InspectionReport() {
   const printRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -197,6 +265,15 @@ export function InspectionReport() {
   // PDF Preview state
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+
+  // Bid PDF state
+  const [showBidModal, setShowBidModal] = useState(false);
+  const [bidPrice, setBidPrice] = useState('');
+  const [bidOption, setBidOption] = useState('A');
+  const [bidTitle, setBidTitle] = useState('Roof Repair & Maintenance');
+  const [isGeneratingBid, setIsGeneratingBid] = useState(false);
+  const [showBidPreview, setShowBidPreview] = useState(false);
+  const [bidBlobUrl, setBidBlobUrl] = useState<string | null>(null);
   const [pendingPdfDoc, setPendingPdfDoc] = useState<{ save: (filename: string) => void } | null>(null);
 
   // Form state
@@ -831,6 +908,280 @@ export function InspectionReport() {
     setPendingPdfDoc(null);
   };
 
+  const handleCloseBidPreview = () => {
+    setShowBidPreview(false);
+    if (bidBlobUrl) {
+      URL.revokeObjectURL(bidBlobUrl);
+      setBidBlobUrl(null);
+    }
+  };
+
+  const handleDownloadBid = () => {
+    if (bidBlobUrl) {
+      const a = document.createElement('a');
+      a.href = bidBlobUrl;
+      const safeName = (propertyAddress || 'bid').replace(/[^a-z0-9]/gi, '-');
+      a.download = `RRP-Bid-Option${bidOption}-${safeName}.pdf`;
+      a.click();
+    }
+    handleCloseBidPreview();
+  };
+
+  const handleGenerateBid = async () => {
+    setIsGeneratingBid(true);
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentW = pageW - margin * 2;
+
+      const navy = '#00224a';
+      const red = '#C0392B';
+      const darkGray = '#0F172A';
+      const medGray = '#64748B';
+      const lineGray = '#E2E8F0';
+
+      let y = 14;
+
+      // ===== HEADER =====
+      const leftColW = 54;
+      const dividerX = margin + leftColW + 2;
+      const rightColX = dividerX + 6;
+      const rightColW = pageW - margin - rightColX;
+
+      // Company logo (left)
+      let logoBottom = y;
+      if (logoUrl) {
+        try {
+          pdf.addImage(logoUrl, 'JPEG', margin, y, 28, 20);
+          logoBottom = y + 22;
+        } catch { logoBottom = y; }
+      }
+
+      // Company name below logo
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(navy);
+      const nameParts = (companyInfo.name || 'Roof Repair Partners').toUpperCase().split(' ');
+      const midpoint = Math.ceil(nameParts.length / 2);
+      pdf.text(nameParts.slice(0, midpoint).join(' '), margin, Math.max(logoBottom + 4, y + 14));
+      pdf.setTextColor(red);
+      pdf.text(nameParts.slice(midpoint).join(' '), margin, Math.max(logoBottom + 9, y + 20));
+
+      // Vertical divider
+      pdf.setDrawColor(navy);
+      pdf.setLineWidth(0.6);
+      pdf.line(dividerX, y, dividerX, y + 36);
+
+      // "ROOF REPAIR OPTION" two-color title
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      const roofRepairText = 'ROOF REPAIR ';
+      const optionText = 'OPTION';
+      pdf.setTextColor(navy);
+      const roofW = pdf.getTextWidth(roofRepairText);
+      const optW = pdf.getTextWidth(optionText);
+      const totalTW = roofW + optW;
+      const titleStartX = rightColX + Math.max(0, (rightColW - totalTW) / 2);
+      const titleY = y + 18;
+      pdf.text(roofRepairText, titleStartX, titleY);
+      pdf.setTextColor(red);
+      pdf.text(optionText, titleStartX + roofW, titleY);
+
+      // Red underline under OPTION
+      pdf.setDrawColor(red);
+      pdf.setLineWidth(1.2);
+      pdf.line(titleStartX + roofW, titleY + 2, titleStartX + roofW + optW, titleY + 2);
+
+      y += 44;
+
+      // Subtitle centered
+      const subtitle = "We've inspected your roof and recommend the following repair option to help prevent future leaks and protect your home.";
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(darkGray);
+      const subLines = pdf.splitTextToSize(subtitle, 150);
+      pdf.text(subLines, pageW / 2, y, { align: 'center' });
+      y += subLines.length * 4.5 + 5;
+
+      // Address line
+      const addrText = (propertyAddress || '').toUpperCase();
+      pdf.setFontSize(13);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(navy);
+      pdf.text(`—  ${addrText}  —`, pageW / 2, y, { align: 'center' });
+      y += 12;
+
+      // ===== OPTION BLOCK =====
+      pdf.setFillColor(navy);
+      pdf.roundedRect(margin, y, contentW, 17, 2, 2, 'F');
+
+      // "OPTION" small label
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor('#94A3B8');
+      pdf.text('OPTION', margin + 4, y + 5.5);
+
+      // Letter
+      pdf.setFontSize(17);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor('#ffffff');
+      pdf.text(bidOption || 'A', margin + 5, y + 13.5);
+
+      // White vertical divider
+      pdf.setDrawColor('#ffffff');
+      pdf.setLineWidth(0.4);
+      pdf.line(margin + 20, y + 3, margin + 20, y + 14);
+
+      // Option title
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor('#ffffff');
+      pdf.text((bidTitle || 'ROOF REPAIR & MAINTENANCE').toUpperCase(), margin + 24, y + 11);
+
+      y += 21;
+
+      // ===== LINE ITEMS =====
+      const lineItems = parseBidLineItems(recommendedAction);
+      const circR = 7.5;
+      const circX = margin + circR;
+      const itemTextX = margin + circR * 2 + 5;
+      const itemTextW = contentW - circR * 2 - 6;
+
+      for (let i = 0; i < lineItems.length; i++) {
+        const item = lineItems[i];
+
+        if (i > 0) {
+          pdf.setDrawColor(lineGray);
+          pdf.setLineWidth(0.25);
+          pdf.line(margin, y, margin + contentW, y);
+          y += 3;
+        }
+
+        const titleLines = pdf.splitTextToSize(item.title, itemTextW);
+        const descLines = item.description ? pdf.splitTextToSize(item.description, itemTextW) : [];
+        const textH = titleLines.length * 5 + descLines.length * 4.2 + (descLines.length > 0 ? 2 : 0);
+        const itemH = Math.max(circR * 2 + 4, textH + 4);
+
+        if (y + itemH > pageH - 65) {
+          pdf.addPage();
+          y = 14;
+        }
+
+        const circCY = y + itemH / 2;
+
+        // Navy circle
+        pdf.setFillColor(navy);
+        pdf.circle(circX, circCY, circR, 'F');
+
+        // White icon
+        drawBidIcon(pdf, circX, circCY, i);
+
+        // Title
+        const textY = y + (descLines.length > 0 ? 6 : itemH / 2 + 1.5);
+        pdf.setFontSize(9.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(darkGray);
+        pdf.text(titleLines, itemTextX, textY);
+
+        // Description
+        if (descLines.length > 0) {
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(medGray);
+          pdf.text(descLines, itemTextX, textY + titleLines.length * 5 + 1);
+        }
+
+        y += itemH + 2;
+      }
+
+      y += 4;
+
+      // ===== TOTAL INVESTMENT BAR =====
+      if (y > pageH - 65) { pdf.addPage(); y = 14; }
+
+      pdf.setFillColor(navy);
+      pdf.roundedRect(margin, y, contentW, 17, 2, 2, 'F');
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor('#94A3B8');
+      pdf.text('TOTAL INVESTMENT', margin + 5, y + 11);
+
+      pdf.setDrawColor('#94A3B8');
+      pdf.setLineWidth(0.4);
+      const divX = margin + 72;
+      pdf.line(divX, y + 3, divX, y + 14);
+
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor('#ffffff');
+      pdf.text(`$${bidPrice || '0'}`, pageW - margin - 4, y + 13, { align: 'right' });
+
+      y += 21;
+
+      // ===== TRUST BADGES =====
+      const badgeW = contentW / 3;
+      const badges = [
+        { title: 'QUALITY WORK', desc: 'We use quality materials and proven methods to get the job done right.' },
+        { title: 'LASTING PROTECTION', desc: 'Our repairs help extend the life of your roof and protect your home.' },
+        { title: "YOU'RE IN GOOD HANDS", desc: 'Reliable service you can count on.' },
+      ];
+
+      badges.forEach((badge, bi) => {
+        const bx = margin + bi * badgeW + badgeW / 2;
+        const by = y;
+
+        // Shield circle
+        pdf.setFillColor('#F1F5F9');
+        pdf.circle(bx, by + 5, 5, 'F');
+        pdf.setDrawColor(navy);
+        pdf.setLineWidth(0.5);
+        pdf.setFillColor(navy);
+        pdf.circle(bx, by + 5, 5, 'S');
+        // Check inside
+        pdf.setDrawColor(navy);
+        pdf.setLineWidth(0.8);
+        pdf.line(bx - 1.8, by + 5, bx - 0.3, by + 6.5);
+        pdf.line(bx - 0.3, by + 6.5, bx + 2.2, by + 3);
+
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(navy);
+        pdf.text(badge.title, bx, by + 13, { align: 'center' });
+
+        pdf.setFontSize(6.5);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(medGray);
+        const bdLines = pdf.splitTextToSize(badge.desc, badgeW - 6);
+        pdf.text(bdLines, bx, by + 17, { align: 'center' });
+      });
+
+      y += 32;
+
+      // Disclaimer
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(medGray);
+      pdf.text('*This proposal is valid for 30 days from the date above.', pageW / 2, y, { align: 'center' });
+
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      if (bidBlobUrl) URL.revokeObjectURL(bidBlobUrl);
+      setBidBlobUrl(blobUrl);
+      setShowBidPreview(true);
+      setShowBidModal(false);
+    } catch (error) {
+      console.error('Bid generation failed:', error);
+      alert('Failed to generate bid. Please try again.');
+    } finally {
+      setIsGeneratingBid(false);
+    }
+  };
+
   // Combine all photos for print template
   const allPhotosForPrint = [
     ...PHOTO_SLOTS.map(slot => ({
@@ -956,6 +1307,135 @@ export function InspectionReport() {
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors text-sm"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bid Options Modal */}
+      {showBidModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Generate Bid</h2>
+                <p className="text-sm text-slate-500">Set bid details before generating</p>
+              </div>
+              <button onClick={() => setShowBidModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="flex gap-3">
+                <div className="w-20">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Option</label>
+                  <select
+                    value={bidOption}
+                    onChange={e => setBidOption(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    {['A', 'B', 'C', 'D'].map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Option Title</label>
+                  <input
+                    type="text"
+                    value={bidTitle}
+                    onChange={e => setBidTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    placeholder="Roof Repair & Maintenance"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Total Investment</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-semibold">$</span>
+                  <input
+                    type="text"
+                    value={bidPrice}
+                    onChange={e => setBidPrice(e.target.value.replace(/[^0-9.]/g, ''))}
+                    className="w-full pl-7 pr-4 py-2.5 border border-slate-200 rounded-lg text-slate-900 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Scope preview</p>
+                <p className="text-xs text-slate-600 line-clamp-4">
+                  {recommendedAction || 'No scope entered — add text to the Recommended Action field to populate bid line items.'}
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex gap-3">
+              <button
+                onClick={() => setShowBidModal(false)}
+                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateBid}
+                disabled={isGeneratingBid}
+                className="flex-1 py-2.5 bg-gradient-to-r from-[#00224a] to-[#003570] text-white font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-lg text-sm"
+              >
+                {isGeneratingBid ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Generate Bid
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bid Preview Modal */}
+      {showBidPreview && bidBlobUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">Preview Bid — Option {bidOption}</h2>
+                <p className="text-xs sm:text-sm text-slate-500">Review before downloading</p>
+              </div>
+              <button onClick={handleCloseBidPreview} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden bg-slate-200 min-h-0">
+              <iframe src={bidBlobUrl} className="w-full h-full min-h-[300px] sm:min-h-[500px]" title="Bid Preview" />
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-white">
+              <button onClick={handleCloseBidPreview} className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={handleDownloadBid}
+                className="px-4 sm:px-6 py-2.5 bg-gradient-to-r from-[#00224a] to-[#003570] text-white font-semibold rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg text-sm sm:text-base"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Bid
               </button>
             </div>
           </div>
@@ -1105,6 +1585,19 @@ export function InspectionReport() {
                     <span className="text-sm hidden sm:inline">Save</span>
                   </>
                 )}
+              </button>
+
+              {/* Generate Bid */}
+              <button
+                onClick={() => setShowBidModal(true)}
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-[#00224a] hover:bg-[#003570] text-white font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-md text-sm"
+                title="Generate Bid PDF"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="hidden sm:inline">Generate Bid</span>
+                <span className="sm:hidden">Bid</span>
               </button>
 
             {/* Download PDF */}
