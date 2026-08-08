@@ -268,12 +268,12 @@ export function InspectionReport() {
 
   // Bid PDF state
   const [showBidModal, setShowBidModal] = useState(false);
-  const [bidPrice, setBidPrice] = useState('');
   const [bidOption, setBidOption] = useState('A');
   const [bidTitle, setBidTitle] = useState('Roof Repair & Maintenance');
   const [isGeneratingBid, setIsGeneratingBid] = useState(false);
   const [showBidPreview, setShowBidPreview] = useState(false);
   const [bidBlobUrl, setBidBlobUrl] = useState<string | null>(null);
+  const [bidItems, setBidItems] = useState<Array<{ title: string; description: string; price: string }>>([]);
   const [pendingPdfDoc, setPendingPdfDoc] = useState<{ save: (filename: string) => void } | null>(null);
 
   // Form state
@@ -908,6 +908,12 @@ export function InspectionReport() {
     setPendingPdfDoc(null);
   };
 
+  const openBidModal = () => {
+    const parsed = parseBidLineItems(recommendedAction);
+    setBidItems(parsed.map(item => ({ ...item, price: '' })));
+    setShowBidModal(true);
+  };
+
   const handleCloseBidPreview = () => {
     setShowBidPreview(false);
     if (bidBlobUrl) {
@@ -1045,14 +1051,23 @@ export function InspectionReport() {
       y += 21;
 
       // ===== LINE ITEMS =====
-      const lineItems = parseBidLineItems(recommendedAction);
       const circR = 7.5;
       const circX = margin + circR;
+      const priceColW = 28;
       const itemTextX = margin + circR * 2 + 5;
-      const itemTextW = contentW - circR * 2 - 6;
+      const itemTextW = contentW - circR * 2 - 6 - priceColW;
 
-      for (let i = 0; i < lineItems.length; i++) {
-        const item = lineItems[i];
+      // Calculate total from item prices
+      const bidTotal = bidItems.reduce((sum, item) => {
+        return sum + (parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0);
+      }, 0);
+      const formatPrice = (val: string) => {
+        const n = parseFloat(val.replace(/[^0-9.]/g, ''));
+        return isNaN(n) ? '' : `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+      };
+
+      for (let i = 0; i < bidItems.length; i++) {
+        const item = bidItems[i];
 
         if (i > 0) {
           pdf.setDrawColor(lineGray);
@@ -1095,6 +1110,15 @@ export function InspectionReport() {
           pdf.text(descLines, itemTextX, textY + titleLines.length * 5 + 1);
         }
 
+        // Item price (right-aligned)
+        const priceStr = formatPrice(item.price);
+        if (priceStr) {
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(navy);
+          pdf.text(priceStr, pageW - margin - 2, y + itemH / 2 + 2, { align: 'right' });
+        }
+
         y += itemH + 2;
       }
 
@@ -1116,10 +1140,11 @@ export function InspectionReport() {
       const divX = margin + 72;
       pdf.line(divX, y + 3, divX, y + 14);
 
+      const totalStr = `$${bidTotal.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
       pdf.setFontSize(20);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor('#ffffff');
-      pdf.text(`$${bidPrice || '0'}`, pageW - margin - 4, y + 13, { align: 'right' });
+      pdf.text(totalStr, pageW - margin - 4, y + 13, { align: 'right' });
 
       y += 21;
 
@@ -1316,11 +1341,13 @@ export function InspectionReport() {
       {/* Bid Options Modal */}
       {showBidModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] overflow-hidden">
+
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Generate Bid</h2>
-                <p className="text-sm text-slate-500">Set bid details before generating</p>
+                <p className="text-sm text-slate-500">Price each line item — total is calculated automatically</p>
               </div>
               <button onClick={() => setShowBidModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                 <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1328,10 +1355,12 @@ export function InspectionReport() {
                 </svg>
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+
+            {/* Option + Title */}
+            <div className="px-6 pt-4 pb-3 border-b border-slate-100 shrink-0">
               <div className="flex gap-3">
                 <div className="w-20">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Option</label>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Option</label>
                   <select
                     value={bidOption}
                     onChange={e => setBidOption(e.target.value)}
@@ -1341,7 +1370,7 @@ export function InspectionReport() {
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Option Title</label>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Option Title</label>
                   <input
                     type="text"
                     value={bidTitle}
@@ -1351,56 +1380,87 @@ export function InspectionReport() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Total Investment</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-semibold">$</span>
-                  <input
-                    type="text"
-                    value={bidPrice}
-                    onChange={e => setBidPrice(e.target.value.replace(/[^0-9.]/g, ''))}
-                    className="w-full pl-7 pr-4 py-2.5 border border-slate-200 rounded-lg text-slate-900 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="0.00"
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Scope preview</p>
-                <p className="text-xs text-slate-600 line-clamp-4">
-                  {recommendedAction || 'No scope entered — add text to the Recommended Action field to populate bid line items.'}
-                </p>
-              </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex gap-3">
-              <button
-                onClick={() => setShowBidModal(false)}
-                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleGenerateBid}
-                disabled={isGeneratingBid}
-                className="flex-1 py-2.5 bg-gradient-to-r from-[#00224a] to-[#003570] text-white font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-lg text-sm"
-              >
-                {isGeneratingBid ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Generate Bid
-                  </>
-                )}
-              </button>
+
+            {/* Line Items */}
+            <div className="overflow-y-auto flex-1 px-6 py-3 space-y-2">
+              {bidItems.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-sm">
+                  No scope items found. Add text to the Recommended Action field.
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope Item</span>
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Price</span>
+                  </div>
+                  {bidItems.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-snug">{item.title}</p>
+                        {item.description && (
+                          <p className="text-xs text-slate-400 mt-0.5 leading-snug">{item.description}</p>
+                        )}
+                      </div>
+                      <div className="relative w-28 shrink-0">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={item.price}
+                          onChange={e => {
+                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                            setBidItems(prev => prev.map((it, i) => i === idx ? { ...it, price: val } : it));
+                          }}
+                          placeholder="0"
+                          className="w-full pl-6 pr-2 py-1.5 border border-slate-200 rounded-lg text-slate-900 text-sm font-semibold text-right focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Total + Footer */}
+            <div className="shrink-0 border-t border-slate-200">
+              <div className="px-6 py-3 bg-[#00224a] flex items-center justify-between rounded-b-none">
+                <span className="text-sm font-bold text-slate-300 uppercase tracking-wide">Total Investment</span>
+                <span className="text-xl font-bold text-white">
+                  ${bidItems.reduce((s, it) => s + (parseFloat(it.price.replace(/[^0-9.]/g, '')) || 0), 0)
+                    .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="px-6 py-3 bg-slate-50 flex gap-3">
+                <button
+                  onClick={() => setShowBidModal(false)}
+                  className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGenerateBid}
+                  disabled={isGeneratingBid}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-[#00224a] to-[#003570] text-white font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-lg text-sm"
+                >
+                  {isGeneratingBid ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Generate Bid
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1589,7 +1649,7 @@ export function InspectionReport() {
 
               {/* Generate Bid */}
               <button
-                onClick={() => setShowBidModal(true)}
+                onClick={openBidModal}
                 className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-[#00224a] hover:bg-[#003570] text-white font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-md text-sm"
                 title="Generate Bid PDF"
               >
