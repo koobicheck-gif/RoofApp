@@ -176,6 +176,13 @@ function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+interface BidOptionData {
+  letter: string;
+  title: string;
+  subtitle: string;
+  items: Array<{ title: string; description: string; price: string }>;
+}
+
 function parseBidLineItems(scope: string): Array<{ title: string; description: string }> {
   if (!scope?.trim()) {
     return [
@@ -268,12 +275,11 @@ export function InspectionReport() {
 
   // Bid PDF state
   const [showBidModal, setShowBidModal] = useState(false);
-  const [bidOption, setBidOption] = useState('A');
-  const [bidTitle, setBidTitle] = useState('Roof Repair & Maintenance');
+  const [activeBidTab, setActiveBidTab] = useState(0);
+  const [bidOptions, setBidOptions] = useState<BidOptionData[]>([]);
   const [isGeneratingBid, setIsGeneratingBid] = useState(false);
   const [showBidPreview, setShowBidPreview] = useState(false);
   const [bidBlobUrl, setBidBlobUrl] = useState<string | null>(null);
-  const [bidItems, setBidItems] = useState<Array<{ title: string; description: string; price: string }>>([]);
   const [pendingPdfDoc, setPendingPdfDoc] = useState<{ save: (filename: string) => void } | null>(null);
 
   // Form state
@@ -910,8 +916,36 @@ export function InspectionReport() {
 
   const openBidModal = () => {
     const parsed = parseBidLineItems(recommendedAction);
-    setBidItems(parsed.map(item => ({ ...item, price: '' })));
+    const base = parsed.map(item => ({ ...item, price: '' }));
+    setBidOptions([
+      { letter: 'A', title: 'Essential Repairs', subtitle: 'Focus on the most important issues to help prevent future leaks.', items: base.map(i => ({ ...i })) },
+      { letter: 'B', title: 'Complete Repair Package', subtitle: 'A more comprehensive solution for maximum protection and value.', items: base.map(i => ({ ...i })) },
+    ]);
+    setActiveBidTab(0);
     setShowBidModal(true);
+  };
+
+  const updateBidOption = (idx: number, field: keyof Pick<BidOptionData, 'title' | 'subtitle' | 'letter'>, value: string) => {
+    setBidOptions(prev => prev.map((opt, i) => i === idx ? { ...opt, [field]: value } : opt));
+  };
+
+  const updateBidItem = (optIdx: number, itemIdx: number, field: string, value: string) => {
+    setBidOptions(prev => prev.map((opt, i) => {
+      if (i !== optIdx) return opt;
+      return { ...opt, items: opt.items.map((it, j) => j === itemIdx ? { ...it, [field]: value } : it) };
+    }));
+  };
+
+  const addBidItem = (optIdx: number) => {
+    setBidOptions(prev => prev.map((opt, i) =>
+      i !== optIdx ? opt : { ...opt, items: [...opt.items, { title: 'New Item', description: '', price: '' }] }
+    ));
+  };
+
+  const removeBidItem = (optIdx: number, itemIdx: number) => {
+    setBidOptions(prev => prev.map((opt, i) =>
+      i !== optIdx ? opt : { ...opt, items: opt.items.filter((_, j) => j !== itemIdx) }
+    ));
   };
 
   const handleCloseBidPreview = () => {
@@ -927,7 +961,7 @@ export function InspectionReport() {
       const a = document.createElement('a');
       a.href = bidBlobUrl;
       const safeName = (propertyAddress || 'bid').replace(/[^a-z0-9]/gi, '-');
-      a.download = `RRP-Bid-Option${bidOption}-${safeName}.pdf`;
+      a.download = `RRP-Bid-${safeName}.pdf`;
       a.click();
     }
     handleCloseBidPreview();
@@ -941,257 +975,234 @@ export function InspectionReport() {
 
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 14;
-      const contentW = pageW - margin * 2;
+      const margin = 10;
+      const colGap = 7;
+      const colW = (pageW - margin * 2 - colGap) / 2;
 
       const navy = '#00224a';
-      const red = '#C0392B';
+      const darkRed = '#8B1A1A';
       const darkGray = '#0F172A';
       const medGray = '#64748B';
       const lineGray = '#E2E8F0';
+      const optColors = [navy, darkRed];
 
-      let y = 14;
+      let y = 11;
 
-      // ===== HEADER =====
-      const leftColW = 54;
-      const dividerX = margin + leftColW + 2;
-      const rightColX = dividerX + 6;
-      const rightColW = pageW - margin - rightColX;
+      // ===== HEADER (full width) =====
+      const hdrLogoW = 48;
+      const hdrDivX = margin + hdrLogoW + 2;
+      const hdrRightX = hdrDivX + 5;
+      const hdrRightW = pageW - margin - hdrRightX;
 
-      // Company logo (left)
-      let logoBottom = y;
       if (logoUrl) {
-        try {
-          pdf.addImage(logoUrl, 'JPEG', margin, y, 28, 20);
-          logoBottom = y + 22;
-        } catch { logoBottom = y; }
+        try { pdf.addImage(logoUrl, 'JPEG', margin, y, 24, 17); } catch { /* skip */ }
       }
-
-      // Company name below logo
-      pdf.setFontSize(11);
+      pdf.setFontSize(9.5);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(navy);
-      const nameParts = (companyInfo.name || 'Roof Repair Partners').toUpperCase().split(' ');
-      const midpoint = Math.ceil(nameParts.length / 2);
-      pdf.text(nameParts.slice(0, midpoint).join(' '), margin, Math.max(logoBottom + 4, y + 14));
-      pdf.setTextColor(red);
-      pdf.text(nameParts.slice(midpoint).join(' '), margin, Math.max(logoBottom + 9, y + 20));
+      pdf.text('ROOF REPAIR', margin, y + 20);
+      pdf.setTextColor(darkRed);
+      pdf.text('PARTNERS', margin, y + 25);
 
-      // Vertical divider
-      pdf.setDrawColor(navy);
-      pdf.setLineWidth(0.6);
-      pdf.line(dividerX, y, dividerX, y + 36);
+      pdf.setDrawColor('#CBD5E1');
+      pdf.setLineWidth(0.5);
+      pdf.line(hdrDivX, y, hdrDivX, y + 32);
 
-      // "ROOF REPAIR OPTION" two-color title
-      pdf.setFontSize(24);
-      pdf.setFont('helvetica', 'bold');
-      const roofRepairText = 'ROOF REPAIR ';
-      const optionText = 'OPTION';
-      pdf.setTextColor(navy);
-      const roofW = pdf.getTextWidth(roofRepairText);
-      const optW = pdf.getTextWidth(optionText);
-      const totalTW = roofW + optW;
-      const titleStartX = rightColX + Math.max(0, (rightColW - totalTW) / 2);
-      const titleY = y + 18;
-      pdf.text(roofRepairText, titleStartX, titleY);
-      pdf.setTextColor(red);
-      pdf.text(optionText, titleStartX + roofW, titleY);
-
-      // Red underline under OPTION
-      pdf.setDrawColor(red);
-      pdf.setLineWidth(1.2);
-      pdf.line(titleStartX + roofW, titleY + 2, titleStartX + roofW + optW, titleY + 2);
-
-      y += 44;
-
-      // Subtitle centered
-      const subtitle = "We've inspected your roof and recommend the following repair option to help prevent future leaks and protect your home.";
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(darkGray);
-      const subLines = pdf.splitTextToSize(subtitle, 150);
-      pdf.text(subLines, pageW / 2, y, { align: 'center' });
-      y += subLines.length * 4.5 + 5;
-
-      // Address line
-      const addrText = (propertyAddress || '').toUpperCase();
-      pdf.setFontSize(13);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(navy);
-      pdf.text(`—  ${addrText}  —`, pageW / 2, y, { align: 'center' });
-      y += 12;
-
-      // ===== OPTION BLOCK =====
-      pdf.setFillColor(navy);
-      pdf.roundedRect(margin, y, contentW, 17, 2, 2, 'F');
-
-      // "OPTION" small label
-      pdf.setFontSize(7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor('#94A3B8');
-      pdf.text('OPTION', margin + 4, y + 5.5);
-
-      // Letter
-      pdf.setFontSize(17);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor('#ffffff');
-      pdf.text(bidOption || 'A', margin + 5, y + 13.5);
-
-      // White vertical divider
-      pdf.setDrawColor('#ffffff');
-      pdf.setLineWidth(0.4);
-      pdf.line(margin + 20, y + 3, margin + 20, y + 14);
-
-      // Option title
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor('#ffffff');
-      pdf.text((bidTitle || 'ROOF REPAIR & MAINTENANCE').toUpperCase(), margin + 24, y + 11);
-
-      y += 21;
-
-      // ===== LINE ITEMS =====
-      const circR = 7.5;
-      const circX = margin + circR;
-      const priceColW = 28;
-      const itemTextX = margin + circR * 2 + 5;
-      const itemTextW = contentW - circR * 2 - 6 - priceColW;
-
-      // Calculate total from item prices
-      const bidTotal = bidItems.reduce((sum, item) => {
-        return sum + (parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0);
-      }, 0);
-      const formatPrice = (val: string) => {
-        const n = parseFloat(val.replace(/[^0-9.]/g, ''));
-        return isNaN(n) ? '' : `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-      };
-
-      for (let i = 0; i < bidItems.length; i++) {
-        const item = bidItems[i];
-
-        if (i > 0) {
-          pdf.setDrawColor(lineGray);
-          pdf.setLineWidth(0.25);
-          pdf.line(margin, y, margin + contentW, y);
-          y += 3;
-        }
-
-        const titleLines = pdf.splitTextToSize(item.title, itemTextW);
-        const descLines = item.description ? pdf.splitTextToSize(item.description, itemTextW) : [];
-        const textH = titleLines.length * 5 + descLines.length * 4.2 + (descLines.length > 0 ? 2 : 0);
-        const itemH = Math.max(circR * 2 + 4, textH + 4);
-
-        if (y + itemH > pageH - 65) {
-          pdf.addPage();
-          y = 14;
-        }
-
-        const circCY = y + itemH / 2;
-
-        // Navy circle
-        pdf.setFillColor(navy);
-        pdf.circle(circX, circCY, circR, 'F');
-
-        // White icon
-        drawBidIcon(pdf, circX, circCY, i);
-
-        // Title
-        const textY = y + (descLines.length > 0 ? 6 : itemH / 2 + 1.5);
-        pdf.setFontSize(9.5);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(darkGray);
-        pdf.text(titleLines, itemTextX, textY);
-
-        // Description
-        if (descLines.length > 0) {
-          pdf.setFontSize(8);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setTextColor(medGray);
-          pdf.text(descLines, itemTextX, textY + titleLines.length * 5 + 1);
-        }
-
-        // Item price (right-aligned)
-        const priceStr = formatPrice(item.price);
-        if (priceStr) {
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(navy);
-          pdf.text(priceStr, pageW - margin - 2, y + itemH / 2 + 2, { align: 'right' });
-        }
-
-        y += itemH + 2;
-      }
-
-      y += 4;
-
-      // ===== TOTAL INVESTMENT BAR =====
-      if (y > pageH - 65) { pdf.addPage(); y = 14; }
-
-      pdf.setFillColor(navy);
-      pdf.roundedRect(margin, y, contentW, 17, 2, 2, 'F');
-
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor('#94A3B8');
-      pdf.text('TOTAL INVESTMENT', margin + 5, y + 11);
-
-      pdf.setDrawColor('#94A3B8');
-      pdf.setLineWidth(0.4);
-      const divX = margin + 72;
-      pdf.line(divX, y + 3, divX, y + 14);
-
-      const totalStr = `$${bidTotal.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
       pdf.setFontSize(20);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor('#ffffff');
-      pdf.text(totalStr, pageW - margin - 4, y + 13, { align: 'right' });
+      pdf.setTextColor(navy);
+      pdf.text('ROOF REPAIR OPTIONS', hdrRightX + 2, y + 12);
 
-      y += 21;
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(darkRed);
+      const ibsText = 'INVESTOR BID SUMMARY';
+      pdf.text(ibsText, hdrRightX + 2, y + 19);
+      pdf.setDrawColor(darkRed);
+      pdf.setLineWidth(0.8);
+      pdf.line(hdrRightX + 2, y + 20.5, hdrRightX + 2 + pdf.getTextWidth(ibsText), y + 20.5);
 
-      // ===== TRUST BADGES =====
-      const badgeW = contentW / 3;
+      y += 36;
+
+      const descText = "Thank you for the opportunity to provide this proposal. We've inspected your roof and recommend the following repair options to address the issues noted and help protect your investment for the long term.";
+      pdf.setFontSize(7.5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(darkGray);
+      const descLines = pdf.splitTextToSize(descText, hdrRightW);
+      pdf.text(descLines, hdrRightX + 2, y);
+      y += descLines.length * 3.8 + 5;
+
+      pdf.setDrawColor(lineGray);
+      pdf.setLineWidth(0.4);
+      pdf.line(margin, y, pageW - margin, y);
+      y += 6;
+
+      // ===== TWO COLUMNS =====
+      const colStartX = [margin, margin + colW + colGap];
+      const colYEnd: number[] = [];
+
+      for (let optIdx = 0; optIdx < Math.min(bidOptions.length, 2); optIdx++) {
+        const opt = bidOptions[optIdx];
+        const cx = colStartX[optIdx];
+        const oc = optColors[optIdx];
+        let cy = y;
+
+        // Option header
+        pdf.setFillColor(oc);
+        pdf.roundedRect(cx, cy, colW, 24, 2, 2, 'F');
+
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor('#94A3B8');
+        pdf.text('OPTION', cx + 3, cy + 5);
+
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor('#ffffff');
+        pdf.text(opt.letter, cx + 3, cy + 15);
+
+        pdf.setDrawColor('rgba(255,255,255,0.4)');
+        pdf.setLineWidth(0.3);
+        pdf.line(cx + 16, cy + 3, cx + 16, cy + 21);
+
+        pdf.setFontSize(9.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor('#ffffff');
+        const titleLines = pdf.splitTextToSize(opt.title.toUpperCase(), colW - 20);
+        pdf.text(titleLines, cx + 19, cy + 9);
+
+        if (opt.subtitle) {
+          pdf.setFontSize(6.5);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor('#CBD5E1');
+          const subL = pdf.splitTextToSize(opt.subtitle, colW - 20);
+          pdf.text(subL, cx + 19, cy + 9 + titleLines.length * 4.5 + 1);
+        }
+
+        cy += 27;
+
+        // Items
+        const circR = 6;
+        const circX = cx + circR + 1;
+        const itTextX = cx + circR * 2 + 4;
+        const itTextW = colW - circR * 2 - 5;
+
+        for (let i = 0; i < opt.items.length; i++) {
+          const item = opt.items[i];
+          if (i > 0) {
+            pdf.setDrawColor(lineGray);
+            pdf.setLineWidth(0.2);
+            pdf.line(cx, cy, cx + colW, cy);
+            cy += 2.5;
+          }
+
+          const tLines = pdf.splitTextToSize(item.title, itTextW);
+          const dLines = item.description ? pdf.splitTextToSize(item.description, itTextW) : [];
+          const textH = tLines.length * 4.3 + dLines.length * 3.6 + (dLines.length > 0 ? 1.5 : 0);
+          const itemH = Math.max(circR * 2 + 2, textH + 3);
+          const circCY = cy + itemH / 2;
+
+          pdf.setFillColor(oc);
+          pdf.circle(circX, circCY, circR, 'F');
+          drawBidIcon(pdf, circX, circCY, i);
+
+          const titleY = cy + (dLines.length > 0 ? 5 : itemH / 2 + 1.5);
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(oc);
+          pdf.text(tLines, itTextX, titleY);
+
+          if (dLines.length > 0) {
+            pdf.setFontSize(6.5);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(medGray);
+            pdf.text(dLines, itTextX, titleY + tLines.length * 4.3 + 1);
+          }
+
+          cy += itemH + 1.5;
+        }
+
+        cy += 5;
+
+        // Total bar
+        pdf.setFillColor(oc);
+        pdf.roundedRect(cx, cy, colW, 13, 2, 2, 'F');
+
+        pdf.setFontSize(7.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor('#94A3B8');
+        pdf.text('TOTAL INVESTMENT', cx + 3, cy + 8.5);
+
+        pdf.setDrawColor('#94A3B8');
+        pdf.setLineWidth(0.3);
+        pdf.line(cx + 42, cy + 2, cx + 42, cy + 11);
+
+        const total = opt.items.reduce((s, it) => s + (parseFloat(it.price.replace(/[^0-9.]/g, '')) || 0), 0);
+        pdf.setFontSize(15);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor('#ffffff');
+        pdf.text(`$${total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, cx + colW - 2, cy + 10, { align: 'right' });
+
+        cy += 15;
+        colYEnd.push(cy);
+      }
+
+      y = Math.max(...colYEnd) + 10;
+
+      // ===== FOOTER BADGES =====
       const badges = [
-        { title: 'QUALITY WORK', desc: 'We use quality materials and proven methods to get the job done right.' },
-        { title: 'LASTING PROTECTION', desc: 'Our repairs help extend the life of your roof and protect your home.' },
-        { title: "YOU'RE IN GOOD HANDS", desc: 'Reliable service you can count on.' },
+        { title: 'QUALITY WORK', desc: 'We use quality materials and proven methods to do the job right.' },
+        { title: 'LASTING PROTECTION', desc: 'Our repairs help extend the life of your roof and protect your investment.' },
+        { title: 'INVESTOR FOCUSED', desc: 'Cost-effective solutions designed to protect your property and maximize ROI.' },
+        { title: 'RELIABLE SERVICE', desc: 'We show up on time, communicate clearly, and get the job done.' },
       ];
 
+      const bW = (pageW - margin * 2) / 4;
       badges.forEach((badge, bi) => {
-        const bx = margin + bi * badgeW + badgeW / 2;
-        const by = y;
+        const bx = margin + bi * bW + bW / 2;
 
-        // Shield circle
-        pdf.setFillColor('#F1F5F9');
-        pdf.circle(bx, by + 5, 5, 'F');
+        pdf.setFillColor('#EFF6FF');
+        pdf.circle(bx, y + 5, 4.5, 'F');
         pdf.setDrawColor(navy);
-        pdf.setLineWidth(0.5);
-        pdf.setFillColor(navy);
-        pdf.circle(bx, by + 5, 5, 'S');
-        // Check inside
-        pdf.setDrawColor(navy);
-        pdf.setLineWidth(0.8);
-        pdf.line(bx - 1.8, by + 5, bx - 0.3, by + 6.5);
-        pdf.line(bx - 0.3, by + 6.5, bx + 2.2, by + 3);
-
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(navy);
-        pdf.text(badge.title, bx, by + 13, { align: 'center' });
+        pdf.setLineWidth(0.4);
+        pdf.circle(bx, y + 5, 4.5, 'S');
+        pdf.setLineWidth(0.6);
+        pdf.line(bx - 1.5, y + 5, bx - 0.2, y + 6.3);
+        pdf.line(bx - 0.2, y + 6.3, bx + 2, y + 3.5);
 
         pdf.setFontSize(6.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(navy);
+        pdf.text(badge.title, bx, y + 12.5, { align: 'center' });
+        pdf.setFontSize(5.8);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(medGray);
-        const bdLines = pdf.splitTextToSize(badge.desc, badgeW - 6);
-        pdf.text(bdLines, bx, by + 17, { align: 'center' });
+        pdf.text(pdf.splitTextToSize(badge.desc, bW - 5), bx, y + 16, { align: 'center' });
       });
 
-      y += 32;
+      y += 30;
 
-      // Disclaimer
-      pdf.setFontSize(7);
-      pdf.setFont('helvetica', 'italic');
-      pdf.setTextColor(medGray);
-      pdf.text('*This proposal is valid for 30 days from the date above.', pageW / 2, y, { align: 'center' });
+      // Commitment bar
+      if (y + 16 < pageH) {
+        pdf.setFillColor(navy);
+        pdf.rect(margin, y, pageW - margin * 2, 10, 'F');
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor('#94A3B8');
+        pdf.text('OUR COMMITMENT', margin + 4, y + 4.5);
+        pdf.setFontSize(6.5);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor('#CBD5E1');
+        pdf.text('We take pride in every project and stand behind our work. Your satisfaction and protection of your investment are our top priorities.', margin + 45, y + 4.5, { maxWidth: pageW - margin * 2 - 50 });
+        y += 12;
+
+        pdf.setFillColor(darkRed);
+        pdf.rect(margin, y, pageW - margin * 2, 8, 'F');
+        pdf.setFontSize(7.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor('#ffffff');
+        pdf.text("Let's protect your investment — we're here to help!", pageW / 2, y + 5.2, { align: 'center' });
+      }
 
       const pdfBlob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -1339,132 +1350,198 @@ export function InspectionReport() {
       )}
 
       {/* Bid Options Modal */}
-      {showBidModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] overflow-hidden">
+      {showBidModal && bidOptions.length > 0 && (() => {
+        const tabColors = ['#00224a', '#8B1A1A'];
+        const activeOpt = bidOptions[activeBidTab];
+        const activeColor = tabColors[activeBidTab] || '#00224a';
+        const optTotal = activeOpt.items.reduce((s, it) => s + (parseFloat(it.price.replace(/[^0-9.]/g, '')) || 0), 0);
 
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Generate Bid</h2>
-                <p className="text-sm text-slate-500">Price each line item — total is calculated automatically</p>
-              </div>
-              <button onClick={() => setShowBidModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[94vh] overflow-hidden">
 
-            {/* Option + Title */}
-            <div className="px-6 pt-4 pb-3 border-b border-slate-100 shrink-0">
-              <div className="flex gap-3">
-                <div className="w-20">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Option</label>
-                  <select
-                    value={bidOption}
-                    onChange={e => setBidOption(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  >
-                    {['A', 'B', 'C', 'D'].map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+              {/* Header */}
+              <div className="px-6 py-3.5 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Generate Bid</h2>
+                  <p className="text-sm text-slate-500">Two options, side-by-side on one PDF</p>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Option Title</label>
+                <button onClick={() => setShowBidModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Option Tabs */}
+              <div className="flex shrink-0 border-b border-slate-200">
+                {bidOptions.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveBidTab(idx)}
+                    className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+                      activeBidTab === idx
+                        ? 'border-current text-white'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 bg-slate-50'
+                    }`}
+                    style={activeBidTab === idx ? { backgroundColor: tabColors[idx], borderColor: tabColors[idx] } : {}}
+                  >
+                    Option {opt.letter}
+                  </button>
+                ))}
+              </div>
+
+              {/* Option Title + Subtitle */}
+              <div className="px-5 pt-4 pb-3 border-b border-slate-100 shrink-0 space-y-2.5">
+                <div className="flex gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Letter</label>
+                    <select
+                      value={activeOpt.letter}
+                      onChange={e => updateBidOption(activeBidTab, 'letter', e.target.value)}
+                      className="px-2.5 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 w-16"
+                      style={{ '--tw-ring-color': activeColor } as React.CSSProperties}
+                    >
+                      {['A', 'B', 'C', 'D', 'E'].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Title</label>
+                    <input
+                      type="text"
+                      value={activeOpt.title}
+                      onChange={e => updateBidOption(activeBidTab, 'title', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 font-semibold"
+                      style={{ '--tw-ring-color': activeColor } as React.CSSProperties}
+                      placeholder="Essential Repairs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Subtitle</label>
                   <input
                     type="text"
-                    value={bidTitle}
-                    onChange={e => setBidTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="Roof Repair & Maintenance"
+                    value={activeOpt.subtitle}
+                    onChange={e => updateBidOption(activeBidTab, 'subtitle', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2"
+                    placeholder="Brief description of this option..."
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Line Items */}
-            <div className="overflow-y-auto flex-1 px-6 py-3 space-y-2">
-              {bidItems.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-sm">
-                  No scope items found. Add text to the Recommended Action field.
+              {/* Line Items list */}
+              <div className="overflow-y-auto flex-1 px-5 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Items</span>
+                  <button
+                    onClick={() => addBidItem(activeBidTab)}
+                    className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white transition-colors"
+                    style={{ backgroundColor: activeColor }}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Item
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope Item</span>
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Price</span>
-                  </div>
-                  {bidItems.map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 leading-snug">{item.title}</p>
-                        {item.description && (
-                          <p className="text-xs text-slate-400 mt-0.5 leading-snug">{item.description}</p>
-                        )}
-                      </div>
-                      <div className="relative w-28 shrink-0">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">$</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={item.price}
-                          onChange={e => {
-                            const val = e.target.value.replace(/[^0-9.]/g, '');
-                            setBidItems(prev => prev.map((it, i) => i === idx ? { ...it, price: val } : it));
-                          }}
-                          placeholder="0"
-                          className="w-full pl-6 pr-2 py-1.5 border border-slate-200 rounded-lg text-slate-900 text-sm font-semibold text-right focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
 
-            {/* Total + Footer */}
-            <div className="shrink-0 border-t border-slate-200">
-              <div className="px-6 py-3 bg-[#00224a] flex items-center justify-between rounded-b-none">
-                <span className="text-sm font-bold text-slate-300 uppercase tracking-wide">Total Investment</span>
-                <span className="text-xl font-bold text-white">
-                  ${bidItems.reduce((s, it) => s + (parseFloat(it.price.replace(/[^0-9.]/g, '')) || 0), 0)
-                    .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                </span>
+                {activeOpt.items.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-sm">
+                    No items yet. Click "Add Item" to get started.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {activeOpt.items.map((item, idx) => (
+                      <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2">
+                        <div className="flex gap-2 items-start">
+                          <div className="flex-1 space-y-1.5">
+                            <input
+                              type="text"
+                              value={item.title}
+                              onChange={e => updateBidItem(activeBidTab, idx, 'title', e.target.value)}
+                              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2"
+                              placeholder="Item title (e.g. Replace Damaged Shingles)"
+                            />
+                            <input
+                              type="text"
+                              value={item.description}
+                              onChange={e => updateBidItem(activeBidTab, idx, 'description', e.target.value)}
+                              className="w-full px-2.5 py-1.5 border border-slate-100 bg-slate-50 rounded-lg text-slate-600 text-xs focus:outline-none focus:ring-2"
+                              placeholder="Description (optional)"
+                            />
+                          </div>
+                          <div className="flex items-start gap-1.5 shrink-0 mt-0.5">
+                            <div className="relative w-24">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={item.price}
+                                onChange={e => updateBidItem(activeBidTab, idx, 'price', e.target.value.replace(/[^0-9.]/g, ''))}
+                                placeholder="0"
+                                className="w-full pl-5 pr-2 py-1.5 border border-slate-200 rounded-lg text-slate-900 text-sm font-semibold text-right focus:outline-none focus:ring-2"
+                              />
+                            </div>
+                            <button
+                              onClick={() => removeBidItem(activeBidTab, idx)}
+                              className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="px-6 py-3 bg-slate-50 flex gap-3">
-                <button
-                  onClick={() => setShowBidModal(false)}
-                  className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleGenerateBid}
-                  disabled={isGeneratingBid}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-[#00224a] to-[#003570] text-white font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-lg text-sm"
-                >
-                  {isGeneratingBid ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Generate Bid
-                    </>
-                  )}
-                </button>
+
+              {/* Total + Generate */}
+              <div className="shrink-0 border-t border-slate-200">
+                <div className="px-5 py-2.5 flex items-center justify-between" style={{ backgroundColor: activeColor }}>
+                  <span className="text-xs font-bold text-white/70 uppercase tracking-wide">Option {activeOpt.letter} Total</span>
+                  <span className="text-lg font-bold text-white">
+                    ${optTotal.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="px-5 py-3 bg-slate-50 flex gap-3">
+                  <button
+                    onClick={() => setShowBidModal(false)}
+                    className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleGenerateBid}
+                    disabled={isGeneratingBid}
+                    className="flex-1 py-2.5 text-white font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-lg text-sm"
+                    style={{ background: `linear-gradient(to right, #00224a, #003570)` }}
+                  >
+                    {isGeneratingBid ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Generate Bid PDF
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Bid Preview Modal */}
       {showBidPreview && bidBlobUrl && (
