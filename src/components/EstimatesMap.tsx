@@ -8,6 +8,16 @@ import { calculateEstimate, formatCurrency } from '../utils/calculateEstimate';
 import { rateLimitedFetch } from '../utils/rateLimiter';
 import type { Estimate } from '../types';
 
+// Mock estimates shown when no real data exists yet
+const MOCK_GEOCODED: GeocodedEstimate[] = [
+  { id: 'm1', estimateNumber: 'EST-001', createdAt: new Date(), updatedAt: new Date(), status: 'approved', lat: 35.5281, lng: -97.5956, customer: { name: 'James Whitfield', address: '8204 NW Expressway', city: 'Oklahoma City', state: 'OK', zip: '73162', phone: '', email: '' }, roofType: 'residential', shingleType: 'architectural_30', shingleDamage: [], additionalRepairs: [], customRepairs: [{ id: '1', name: 'Roof Replacement', material: 4800, labor: 2400, quantity: 1, unit: 'each' }], pitchMultiplierId: '', accessibilityMultiplierId: '', isEmergency: false, isAfterHours: false, warrantyOptionId: '', includeServiceAgreement: false, photos: [], scopeOfWork: '', techNotes: '' },
+  { id: 'm2', estimateNumber: 'EST-002', createdAt: new Date(), updatedAt: new Date(), status: 'sent', lat: 35.4676, lng: -97.5164, customer: { name: 'Sandra Torres', address: '1215 Classen Dr', city: 'Oklahoma City', state: 'OK', zip: '73103', phone: '', email: '' }, roofType: 'residential', shingleType: 'architectural_30', shingleDamage: [], additionalRepairs: [], customRepairs: [{ id: '1', name: 'Partial Repair', material: 1200, labor: 800, quantity: 1, unit: 'each' }], pitchMultiplierId: '', accessibilityMultiplierId: '', isEmergency: false, isAfterHours: false, warrantyOptionId: '', includeServiceAgreement: false, photos: [], scopeOfWork: '', techNotes: '' },
+  { id: 'm3', estimateNumber: 'EST-003', createdAt: new Date(), updatedAt: new Date(), status: 'completed', lat: 35.4495, lng: -97.4985, customer: { name: 'Robert Kane', address: '3301 SE 44th St', city: 'Oklahoma City', state: 'OK', zip: '73135', phone: '', email: '' }, roofType: 'residential', shingleType: 'architectural_30', shingleDamage: [], additionalRepairs: [], customRepairs: [{ id: '1', name: 'Full Re-roof', material: 6500, labor: 3200, quantity: 1, unit: 'each' }], pitchMultiplierId: '', accessibilityMultiplierId: '', isEmergency: false, isAfterHours: false, warrantyOptionId: '', includeServiceAgreement: false, photos: [], scopeOfWork: '', techNotes: '' },
+  { id: 'm4', estimateNumber: 'EST-004', createdAt: new Date(), updatedAt: new Date(), status: 'draft', lat: 35.5027, lng: -97.6153, customer: { name: 'Angela Brooks', address: '10704 N Council Rd', city: 'Oklahoma City', state: 'OK', zip: '73162', phone: '', email: '' }, roofType: 'residential', shingleType: 'architectural_30', shingleDamage: [], additionalRepairs: [], customRepairs: [{ id: '1', name: 'Emergency Repair', material: 950, labor: 600, quantity: 1, unit: 'each' }], pitchMultiplierId: '', accessibilityMultiplierId: '', isEmergency: true, isAfterHours: false, warrantyOptionId: '', includeServiceAgreement: false, photos: [], scopeOfWork: '', techNotes: '' },
+  { id: 'm5', estimateNumber: 'EST-005', createdAt: new Date(), updatedAt: new Date(), status: 'invoiced', lat: 35.4374, lng: -97.5789, customer: { name: 'Marcus Greene', address: '4620 SW 29th St', city: 'Oklahoma City', state: 'OK', zip: '73119', phone: '', email: '' }, roofType: 'residential', shingleType: 'architectural_30', shingleDamage: [], additionalRepairs: [], customRepairs: [{ id: '1', name: 'Storm Damage Repair', material: 2800, labor: 1400, quantity: 1, unit: 'each' }], pitchMultiplierId: '', accessibilityMultiplierId: '', isEmergency: false, isAfterHours: false, warrantyOptionId: '', includeServiceAgreement: false, photos: [], scopeOfWork: '', techNotes: '' },
+  { id: 'm6', estimateNumber: 'EST-006', createdAt: new Date(), updatedAt: new Date(), status: 'scheduled', lat: 35.5543, lng: -97.4772, customer: { name: 'Lisa Nguyen', address: '7801 NE 23rd St', city: 'Spencer', state: 'OK', zip: '73084', phone: '', email: '' }, roofType: 'residential', shingleType: 'architectural_30', shingleDamage: [], additionalRepairs: [], customRepairs: [{ id: '1', name: 'Shingle Replacement', material: 3400, labor: 1700, quantity: 1, unit: 'each' }], pitchMultiplierId: '', accessibilityMultiplierId: '', isEmergency: false, isAfterHours: false, warrantyOptionId: '', includeServiceAgreement: false, photos: [], scopeOfWork: '', techNotes: '' },
+];
+
 // Fix Leaflet default marker icon issue
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -140,9 +150,14 @@ export function EstimatesMap({ onSelectEstimate }: EstimatesMapProps) {
   const [geocodedEstimates, setGeocodedEstimates] = useState<GeocodedEstimate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showMap, setShowMap] = useState(true);
+  const [usingMockData, setUsingMockData] = useState(false);
 
   // Calculate totals for estimates
   const getEstimateTotal = (estimate: Estimate): number => {
+    // For mock estimates, sum customRepairs directly to avoid pricing config dependency
+    if (estimate.id.startsWith('m') && estimate.customRepairs.length > 0) {
+      return estimate.customRepairs.reduce((s, r) => s + (r.material + r.labor) * r.quantity, 0);
+    }
     const calculation = calculateEstimate({
       estimate,
       shinglePricing: pricingState.shinglePricing,
@@ -186,8 +201,11 @@ export function EstimatesMap({ onSelectEstimate }: EstimatesMapProps) {
     }
 
     if (estimatesWithAddresses.length > 0) {
+      setUsingMockData(false);
       geocodeAll();
     } else {
+      setUsingMockData(true);
+      setGeocodedEstimates(MOCK_GEOCODED);
       setIsLoading(false);
     }
   }, [estimatesWithAddresses]);
@@ -337,6 +355,11 @@ export function EstimatesMap({ onSelectEstimate }: EstimatesMapProps) {
               ({geocodedEstimates.length} mapped)
             </span>
           )}
+          {usingMockData && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              Demo
+            </span>
+          )}
         </div>
         <button
           onClick={() => setShowMap(false)}
@@ -385,11 +408,9 @@ export function EstimatesMap({ onSelectEstimate }: EstimatesMapProps) {
         />
       </div>
 
-      {geocodedEstimates.length === 0 && !isLoading && (
+      {geocodedEstimates.length === 0 && !isLoading && estimatesWithAddresses.length > 0 && (
         <div className="p-4 text-center text-sm text-gray-500">
-          {estimatesWithAddresses.length === 0
-            ? 'No estimates with addresses to display'
-            : 'Unable to map estimate locations'}
+          Unable to map estimate locations
         </div>
       )}
     </Card>
